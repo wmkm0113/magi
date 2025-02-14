@@ -52,7 +52,7 @@
         </developer>
     </developers>
     <properties>
-        <derby.version>10.15.2.0</derby.version>
+        <derby.version>10.17.1.0</derby.version>
     </properties>
     <dependencies>
         <dependency>
