@@ -9,11 +9,10 @@ English
 [简体中文](README_zh_CN.md)
 [繁體中文](README_zh_TW.md)
 
-An interface toolkit created for the data processing platform, 
-which provides query input and output formats of the unified data platform, 
-data import and export tools, lazy loading of data columns or associated data, and other functions. 
-It can also automatically encrypt/decrypt and query sensitive data based on annotations. 
-Conditional splitting and other operations.
+The object relationship mapping system created for the data processing platform is completed based on the annotations provided by the Jakarta Persistence API to map the JavaBean and data tables, and the relationship between data tables, etc.
+The system provides extended annotations to realize the encryption, storage and query functions of sensitive data, and the secondary cache functions of data. It also provides the query input and output format of the unified data platform, data import and export tools, lazy loading data columns and other functions.
+For data queries, users can query data across databases through a unified data query format. The system will automatically decompose the data query task based on the data table's association relationship, database and other information.
+And integrate the query results to return the query results in a unified format.
 
 ## Table of contents
 * [JDK Version](#JDK-Version)
