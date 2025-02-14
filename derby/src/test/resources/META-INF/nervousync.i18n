@@ -1,0 +1,16 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "languages": [
+    {
+      "code": "en-US",
+      "name": "English",
+      "messages": []
+    },
+    {
+      "code": "zh-CN",
+      "name": "简体中文",
+      "messages": []
+    }
+  ]
+}

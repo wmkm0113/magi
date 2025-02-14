@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="magi-core-jdk11" />
+        <module name="magi-test-jdk11" />
+        <module name="magi-derby" />
+        <module name="magi-mongodb-jdk11" />
+        <module name="magi-nodeps" />
+        <module name="magi-nodeps-jdk11" />
+        <module name="magi-cassandra" />
+        <module name="magi-mongodb" />
+        <module name="magi-core" />
+        <module name="magi-jdbc-jdk11" />
+        <module name="magi-derby-jdk11" />
+        <module name="magi-cassandra-jdk11" />
+        <module name="magi-jdbc" />
+        <module name="magi-test" />
+      </profile>
+    </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="brain" target="11" />
+      <module name="magi-brain" target="11" />
+    </bytecodeTargetLevel>
+  </component>
+</project>

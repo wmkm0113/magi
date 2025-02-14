@@ -1,0 +1,48 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "errors": [
+    {
+      "code": "0x00DB00CA0001",
+      "key": "Sharding_Not_Support"
+    }
+  ],
+  "languages": [
+    {
+      "code": "en-US",
+      "name": "English",
+      "messages": [
+        {
+          "key": "Sharding_Not_Support",
+          "content": "Can't support sharding"
+        },
+        {
+          "key": "Cassandra_Dialect_Title",
+          "content": "Apache Cassandra"
+        },
+        {
+          "key": "Cassandra_Dialect_Description",
+          "content": "Apache Cassandra is an open source NoSQL distributed database trusted by thousands of companies for scalability and high availability without compromising performance. Linear scalability and proven fault-tolerance on commodity hardware or cloud infrastructure make it the perfect platform for mission-critical data."
+        }
+      ]
+    },
+    {
+      "code": "zh-CN",
+      "name": "简体中文",
+      "messages": [
+        {
+          "key": "Sharding_Not_Support",
+          "content": "不支持分片"
+        },
+        {
+          "key": "Cassandra_Dialect_Title",
+          "content": "Apache Cassandra"
+        },
+        {
+          "key": "Cassandra_Dialect_Description",
+          "content": "Apache Cassandra 是一种开源 NoSQL 分布式数据库，在不影响性能的情况下具有可扩展性和高可用性，受到数千家公司的信赖。商用硬件或云基础设施的线性可扩展性和经过验证的容错能力使其成为关键任务数据的完美平台。"
+        }
+      ]
+    }
+  ]
+}

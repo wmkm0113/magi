@@ -1,0 +1,13 @@
+Database Commons API Package
+[02/27/2024]
+[Add] Add data import/export utilities
+[Add] Add sensitive data protect
+[Update] Rewrite query information define
+[Update] I18n support
+
+[06/01/2023]
+[Add] Entity class annotation parse and identify
+[Add] Database query info and builder
+[Add] Query results define
+[Add] ResultMap extends HashMap, unwrap method to convert result map to target object
+[Add] Global interface DatabaseManager and DatabaseClient

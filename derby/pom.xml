@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Licensed to the Nervousync Studio (NSYC) under one or more
+  ~ contributor license agreements. See the NOTICE file distributed with
+  ~ this work for additional information regarding copyright ownership.
+  ~ The ASF licenses this file to You under the Apache License, Version 2.0
+  ~ (the "License"); you may not use this file except in compliance with
+  ~ the License.  You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.nervousync</groupId>
+        <artifactId>magi-jdk11</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>magi-derby-jdk11</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>Nervousync ORM Framework Derby Module</name>
+    <description>Magi Data Platform Middleware Derby Module</description>
+    <url>https://nervousync.org/projects/magi/jdk11/derby/index.shtml</url>
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <organization>
+        <url>https://nervousync.org/</url>
+        <name>Nervousync Studio</name>
+    </organization>
+    <developers>
+        <developer>
+            <name>Steven Wee</name>
+            <email>wmkm0113@gmail.com</email>
+            <url>https://nervousync.org/member/wmkm0113</url>
+            <organization>Nervousync Studio</organization>
+            <organizationUrl>https://nervousync.org/index.shtml</organizationUrl>
+        </developer>
+    </developers>
+    <properties>
+        <derby.version>10.15.2.0</derby.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.nervousync</groupId>
+            <artifactId>magi-core-jdk11</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>org.nervousync</groupId>
+            <artifactId>magi-test-jdk11</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Derby -->
+        <!-- 10.15.2.0 is the latest version runs on JDK 11 -->
+        <dependency>
+            <groupId>org.apache.derby</groupId>
+            <artifactId>derby</artifactId>
+            <version>${derby.version}</version>
+        </dependency>
+    </dependencies>
+</project>

@@ -1,0 +1,114 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "languages": [
+    {
+      "code": "en-US",
+      "name": "English",
+      "messages": [
+        {
+          "key": "Test_Begin",
+          "content": "Start running current class: {0} current method: {1}"
+        },
+        {
+          "key": "Test_Transactional_Config",
+          "content": "Current transactional timeout: {0}, isolation: {1}"
+        },
+        {
+          "key": "Test_End",
+          "content": "Running current class: {0} current method: {1} finished."
+        },
+        {
+          "key": "Test_Initialize_Table",
+          "content": "Initialize table finished."
+        },
+        {
+          "key": "Test_Identify_Code",
+          "content": "Retrieve record using identify code: {0}"
+        },
+        {
+          "key": "Test_Retrieve_Null",
+          "content": "Read record null! "
+        },
+        {
+          "key": "Test_Query_Total_Count",
+          "content": "Total records: {0}"
+        },
+        {
+          "key": "Test_Retrieve_Record",
+          "content": "Read record: {0}"
+        },
+        {
+          "key": "Test_Retrieve_Verify",
+          "content": "Verify resource: {0}"
+        },
+        {
+          "key": "Test_Retrieve_Reference",
+          "content": "Retrieve reference record: {0}"
+        },
+        {
+          "key": "Test_Update_Record",
+          "content": "Update record: {0}"
+        },
+        {
+          "key": "Test_Query_Record",
+          "content": "Record {0}: {1}"
+        }
+      ]
+    },
+    {
+      "code": "zh-CN",
+      "name": "简体中文",
+      "messages": [
+        {
+          "key": "Test_Begin",
+          "content": "开始执行测试类：{0} 测试方法：{1}"
+        },
+        {
+          "key": "Test_Transactional_Config",
+          "content": "当前事务超时时间：{0}，事务等级代码：{1}"
+        },
+        {
+          "key": "Test_End",
+          "content": "执行测试类：{0} 测试方法：{1} 完成"
+        },
+        {
+          "key": "Test_Initialize_Table",
+          "content": "初始化数据表完成。"
+        },
+        {
+          "key": "Test_Identify_Code",
+          "content": "唯一检索记录使用识别码：{0}"
+        },
+        {
+          "key": "Test_Retrieve_Null",
+          "content": "唯一检索记录为null。"
+        },
+        {
+          "key": "Test_Query_Total_Count",
+          "content": "查询总记录条数：{0}"
+        },
+        {
+          "key": "Test_Retrieve_Record",
+          "content": "检索到的记录：{0}"
+        },
+        {
+          "key": "Test_Retrieve_Verify",
+          "content": "验证资源信息结果：{0}"
+        },
+        {
+          "key": "Test_Retrieve_Reference",
+          "content": "检索到的关联信息：{0}"
+        },
+        {
+          "key": "Test_Update_Record",
+          "content": "要更新的记录：{0}"
+        },
+        {
+          "key": "Test_Query_Record",
+          "content": "记录{0}: {1}"
+        }
+      ]
+    }
+  ]
+}
