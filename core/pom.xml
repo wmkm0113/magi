@@ -34,7 +34,7 @@
         </developer>
     </developers>
     <properties>
-        <bytebuddy.version>1.16.1</bytebuddy.version>
+        <bytebuddy.version>1.17.1</bytebuddy.version>
     </properties>
     <dependencies>
         <dependency>

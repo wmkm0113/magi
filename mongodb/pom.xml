@@ -51,7 +51,7 @@
         </developer>
     </developers>
     <properties>
-        <mongodb.version>5.3.0</mongodb.version>
+        <mongodb.version>5.3.1</mongodb.version>
     </properties>
     <dependencies>
         <dependency>
