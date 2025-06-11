@@ -56,7 +56,7 @@
         <mysql.version>9.2.0</mysql.version>
         <mssql.version>12.8.1.jre11</mssql.version>
         <oracle.version>23.7.0.25.01</oracle.version>
-        <pgsql.version>42.7.5</pgsql.version>
+        <pgsql.version>42.7.7</pgsql.version>
         <sqlite.version>3.49.0.0</sqlite.version>
     </properties>
     <dependencies>
