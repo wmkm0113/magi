@@ -17,14 +17,13 @@
 package org.nervousync.magi.beans.defines.sensitive;
 
 import jakarta.annotation.Nonnull;
-import org.nervousync.commons.Globals;
 import org.nervousync.magi.annotations.data.Sensitive;
 import org.nervousync.magi.entity.BaseObject;
 import org.nervousync.magi.enumerations.sensitive.SensitiveType;
 import org.nervousync.security.factory.SecureFactory;
-import org.nervousync.utils.ObjectUtils;
-import org.nervousync.utils.ReflectionUtils;
-import org.nervousync.utils.StringUtils;
+import org.nervousync.utils.core.ObjectUtils;
+import org.nervousync.utils.core.ReflectionUtils;
+import org.nervousync.utils.core.StringUtils;
 
 /**
  * <h2 class="en-US">Sensitive information handling configuration</h2>
@@ -33,6 +32,7 @@ import org.nervousync.utils.StringUtils;
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
  * @version $Revision: 1.0.0 $ $Date: Sep 12, 2023 15:28:21 $
  */
+@SuppressWarnings("unused")
 public final class SensitiveDefine {
 
 	/**
@@ -57,8 +57,8 @@ public final class SensitiveDefine {
 	private final SensitiveType sensitiveType;
 
 	/**
-	 * <h2 class="en-US">Private constructor for sensitive information processing configuration</h2>
-	 * <h2 class="zh-CN">敏感信息处理配置的私有构造方法</h2>
+	 * <h3 class="en-US">Private constructor for sensitive information processing configuration</h3>
+	 * <h3 class="zh-CN">敏感信息处理配置的私有构造方法</h3>
 	 *
 	 * @param fieldName <span class="en-US">Sensitive information field name</span>
 	 *                  <span class="zh-CN">敏感信息属性名</span>
@@ -73,8 +73,8 @@ public final class SensitiveDefine {
 	}
 
 	/**
-	 * <h2 class="en-US">Checks whether the given attribute name is consistent with the current definition information</h2>
-	 * <h2 class="zh-CN">检查给定的属性名是否与当前定义信息一致</h2>
+	 * <h3 class="en-US">Checks whether the given attribute name is consistent with the current definition information</h3>
+	 * <h3 class="zh-CN">检查给定的属性名是否与当前定义信息一致</h3>
 	 *
 	 * @param fieldName <span class="en-US">Sensitive information field name</span>
 	 *                  <span class="zh-CN">敏感信息属性名</span>
@@ -86,28 +86,26 @@ public final class SensitiveDefine {
 	}
 
 	/**
-	 * <h2 class="en-US">Decrypt sensitive information</h2>
-	 * <h2 class="zh-CN">解密敏感信息</h2>
+	 * <h3 class="en-US">Decrypt sensitive information</h3>
+	 * <h3 class="zh-CN">解密敏感信息</h3>
 	 *
 	 * @param object <span class="en-US">Entity instance object</span>
 	 *               <span class="zh-CN">实体类实例对象</span>
-	 * @return <span class="en-US">Sensitive data</span>
-	 * <span class="zh-CN">敏感信息</span>
 	 */
-	public String sensitiveData(@Nonnull final BaseObject object) {
+	public void sensitiveData(@Nonnull final Object object) {
 		Object fieldValue = ReflectionUtils.getFieldValue(this.fieldName, object);
 		if (fieldValue instanceof String) {
 			if (StringUtils.isEmpty(this.secureName) || !SecureFactory.registeredConfig(this.secureName)
 					|| !((String) fieldValue).contains("*")) {
-				return (String) fieldValue;
+				return;
 			}
 			String encData = (String) ReflectionUtils.getFieldValue(this.encName, object);
 			if (StringUtils.isEmpty(encData)) {
-				return (String) fieldValue;
+				return;
 			}
 			String decData = SecureFactory.decrypt(this.secureName, encData);
 			if (StringUtils.isEmpty(decData)) {
-				return (String) fieldValue;
+				return;
 			}
 
 			int beginPosition = ((String) fieldValue).indexOf("*"), endPosition = ((String) fieldValue).lastIndexOf("*");
@@ -116,14 +114,13 @@ public final class SensitiveDefine {
 			if (endPosition > beginPosition) {
 				stringBuilder.append(((String) fieldValue).substring(endPosition + 1));
 			}
-			return stringBuilder.toString();
+			ReflectionUtils.setField(this.fieldName, object, stringBuilder.toString());
 		}
-		return Globals.DEFAULT_VALUE_STRING;
 	}
 
 	/**
-	 * <h2 class="en-US">Encrypt sensitive information</h2>
-	 * <h2 class="zh-CN">处理敏感信息</h2>
+	 * <h3 class="en-US">Encrypt sensitive information</h3>
+	 * <h3 class="zh-CN">处理敏感信息</h3>
 	 *
 	 * @param object <span class="en-US">Entity instance object</span>
 	 *               <span class="zh-CN">实体类实例对象</span>

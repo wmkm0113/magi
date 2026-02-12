@@ -18,7 +18,7 @@
 package org.nervousync.magi.enumerations.reference;
 
 /**
- * <h2 class="en-US">Enumeration value of reference type</h2>
+ * <h2 class="en-US">Enumeration value of reference types</h2>
  * <h2 class="zh-CN">关联类型枚举值</h2>
  *
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
@@ -49,5 +49,5 @@ public enum ReferenceType {
      * <span class="en-US">One to many</span>
      * <span class="zh-CN">一对多</span>
 	 */
-	OneToMany;
+	OneToMany
 }

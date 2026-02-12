@@ -1,7 +1,8 @@
 # 三圣贤数据中心平台
 
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.nervousync/magi-jdk11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.nervousync/magi-jdk11/)
-[![License](https://img.shields.io/github/license/wmkm0113/magi-jdk11.svg)](https://github.com/wmkm0113/magi-jdk11/blob/master/LICENSE)
+[![Maven Central](https://img.shields.io/maven-central/v/org.nervousync/magi-jdk11?color=green&label=Release)](https://mvnrepository.com/artifact/org.nervousync/magi-jdk11)
+![Maven Snapshot](https://img.shields.io/maven-metadata/v?label=Snapshot&metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Forg%2Fnervousync%2Fmagi-jdk11%2Fmaven-metadata.xml)
+[![License](https://img.shields.io/github/license/wmkm0113/magi-jdk11)](https://github.com/wmkm0113/magi-jdk11/blob/mainline/LICENSE)
 ![Language](https://img.shields.io/badge/language-Java-green)
 [![Twitter:wmkm0113](https://img.shields.io/twitter/follow/wmkm0113?label=Follow)](https://twitter.com/wmkm0113)
 
@@ -23,19 +24,19 @@
   + [注册数据表实体类](#3注册数据表实体类)
   + [执行增删改查操作](#4执行增删改查操作)
 * [敏感数据的处理](#敏感数据的处理)
-* [自定义查询优化器](#自定义查询优化器)
 * [使用代码进行数据源的配置](#使用代码进行数据源的配置)
 * [数据导入导出](#数据导入导出)
   + [数据表实体类的修改](#数据表实体类的修改)
   + [导入导出工具的初始化和使用](#导入导出工具的初始化和使用)
 * [贡献与反馈](#贡献与反馈)
-* [赞助与鸣谢](#赞助与鸣谢)
+* [捐款](#捐款)
 
-## JDK版本：
-编译：OpenJDK 11   
-运行：OpenJDK 11+ 或兼容版本
+## JDK版本
+**编译：** OpenJDK 11   
+**运行：** OpenJDK 11+ 或兼容版本   
+**Jakarta EE平台：** 9
 
-## 生命周期：
+## 生命周期
 **功能冻结：** 2026年12月31日   
 **安全更新：** 2029年12月31日
 
@@ -50,11 +51,51 @@
 </dependency>
 ```
 仅使用目标数据库：
-仅支持JDBC数据库（不包含Apache Derby）
+仅支持MariaDB数据库
 ```
 <dependency>
     <groupId>org.nervousync</groupId>
-	<artifactId>magi-jdbc-jdk11</artifactId>
+	<artifactId>magi-mariadb-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+仅支持MySQL数据库
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-mysql-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+仅支持Oracle数据库
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-oracle-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+仅支持Postgres数据库
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-pgsql-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+仅支持SQLite数据库
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-sqlite-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+仅支持SQL Server数据库
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-mssql-jdk11</artifactId>
     <version>${version}</version>
 </dependency>
 ```
@@ -89,10 +130,35 @@ Manual: compileOnly group: 'org.nervousync', name: 'magi-nodeps-jdk11', version:
 Short: compileOnly 'org.nervousync:magi-nodeps-jdk11:${version}'
 ```
 仅使用目标数据库：
-仅支持JDBC数据库（不包含Apache Derby）
+仅支持MariaDB数据库
 ```
-Manual: compileOnly group: 'org.nervousync', name: 'magi-jdbc-jdk11', version: '${version}'
-Short: compileOnly 'org.nervousync:magi-jdbc-jdk11:${version}'
+Manual: compileOnly group: 'org.nervousync', name: 'magi-mariadb-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-mariadb-jdk11:${version}'
+```
+仅支持MySQL数据库
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-mysql-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-mysql-jdk11:${version}'
+```
+仅支持Oracle数据库
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-oracle-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-oracle-jdk11:${version}'
+```
+仅支持Postgres数据库
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-pgsql-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-pgsql-jdk11:${version}'
+```
+仅支持SQLite数据库
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-sqlite-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-sqlite-jdk11:${version}'
+```
+仅支持SQL Server数据库
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-mssql-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-mssql-jdk11:${version}'
 ```
 仅支持Apache Derby
 ```
@@ -114,9 +180,29 @@ Short: compileOnly 'org.nervousync:magi-mongodb-jdk11:${version}'
 libraryDependencies += "org.nervousync" % "magi-nodeps-jdk11" % "${version}" % "provided"
 ```
 仅使用目标数据库：
-仅支持JDBC数据库（不包含Apache Derby）
+仅支持MariaDB数据库
 ```
-libraryDependencies += "org.nervousync" % "magi-jdbc-jdk11" % "${version}" % "provided"
+libraryDependencies += "org.nervousync" % "magi-mariadb-jdk11" % "${version}" % "provided"
+```
+仅支持MySQL数据库
+```
+libraryDependencies += "org.nervousync" % "magi-mysql-jdk11" % "${version}" % "provided"
+```
+仅支持Oracle数据库
+```
+libraryDependencies += "org.nervousync" % "magi-oracle-jdk11" % "${version}" % "provided"
+```
+仅支持Postgres数据库
+```
+libraryDependencies += "org.nervousync" % "magi-pgsql-jdk11" % "${version}" % "provided"
+```
+仅支持SQLite数据库
+```
+libraryDependencies += "org.nervousync" % "magi-sqlite-jdk11" % "${version}" % "provided"
+```
+仅支持SQL Server数据库
+```
+libraryDependencies += "org.nervousync" % "magi-mssql-jdk11" % "${version}" % "provided"
 ```
 仅支持Apache Derby
 ```
@@ -135,9 +221,29 @@ libraryDependencies += "org.nervousync" % "magi-mongodb-jdk11" % "${version}" % 
 <dependency org="org.nervousync" name="magi-nodeps-jdk11" rev="${version}"/>
 ```
 仅使用目标数据库：
-仅支持JDBC数据库（不包含Apache Derby）
+仅支持MariaDB数据库
 ```
-<dependency org="org.nervousync" name="magi-jdbc-jdk11" rev="${version}"/>
+<dependency org="org.nervousync" name="magi-mariadb-jdk11" rev="${version}"/>
+```
+仅支持MySQL数据库
+```
+<dependency org="org.nervousync" name="magi-mysql-jdk11" rev="${version}"/>
+```
+仅支持Oracle数据库
+```
+<dependency org="org.nervousync" name="magi-oracle-jdk11" rev="${version}"/>
+```
+仅支持Postgres数据库
+```
+<dependency org="org.nervousync" name="magi-pgsql-jdk11" rev="${version}"/>
+```
+仅支持SQLite数据库
+```
+<dependency org="org.nervousync" name="magi-sqlite-jdk11" rev="${version}"/>
+```
+仅支持SQL Server数据库
+```
+<dependency org="org.nervousync" name="magi-mssql-jdk11" rev="${version}"/>
 ```
 仅支持Apache Derby
 ```
@@ -336,23 +442,6 @@ libraryDependencies += "org.nervousync" % "magi-mongodb-jdk11" % "${version}" % 
 |  PHONE_NUMBER   |     电话号码     |  139（隐藏信息）1  |
 |      Luhn       |    银行卡号码     | 62（隐藏信息）8888 |
 
-## 自定义查询优化器
-**1、添加查询优化器实现类：***
-新增查询优化器实现类，并实现 org.nervousync.magi.query.optimizer.QueryOptimizer 接口，
-在查询优化器实现类上添加 org.nervousync.annotations.provider.Provider 注解，定义好注解的 name 属性。
-并将实现类写入/META-INF/services/org.nervousync.magi.query.optimizer.QueryOptimizer文件，
-系统通过Java的SPI进行查询优化器实现类的加载。
-
-**2、使用自定义的查询优化器实现类：**
-在初始化实体类工厂时，显示指定查询优化器，通过调用 org.nervousync.magi.entity.EntityFactory 的 initialize 静态方法来初始化实体类工厂。
-
-参数信息：
-
-| 参数名           | 数据类型                                        | 用途                          |
-|---------------|---------------------------------------------|-----------------------------|
-| configure     | org.nervousync.brain.configs.BrainConfigure | 数据源配置信息实例对象                 |
-| optimizerName | 字符串                                         | 查询优化器 Provider 注解的 name 属性值 |
-
 ## 使用代码进行数据源的配置
 
 程序开发人员可以通过使用 org.nervousync.brain.configs.builder.BrainConfigureBuilder 类进行数据源的配置，
@@ -396,8 +485,10 @@ libraryDependencies += "org.nervousync" % "magi-mongodb-jdk11" % "${version}" % 
 如果您需要添加的是定制化的特殊需求，我将收取一定的定制开发费用，具体费用金额根据定制化的特殊需求的工作量进行评估。   
 定制化特殊需求请直接发送电子邮件到[wmkm0113\@gmail.com](mailto:wmkm0113@gmail.com?subject=payment_features)，同时请尽量在邮件中写明您可以负担的开发费用预算金额。
 
-## 赞助与鸣谢
-<span id="JetBrains">
-    <img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg" width="100px" alt="JetBrains Logo (Main) logo.">
-    <span>非常感谢 <a href="https://www.jetbrains.com/">JetBrains</a> 通过许可证赞助我们的开源项目。</span>
-</span>
+## 捐款
+为了支持此项目，您可以向以下地址捐款：
+
+* 比特币地址: bc1ql7elx2j625x7f9tvax90v6zgwp55wy7uawtdtz
+* 以太坊地址: 0xd88a49056E6ECE59e89c7e5724729A0FB0872986
+* Solana 地址: GSwycoeVZHRW72TcvW38qLfqsWhFbwDbxamaEuwEwQjW
+* BNB 地址: 0xd88a49056E6ECE59e89c7e5724729A0FB0872986

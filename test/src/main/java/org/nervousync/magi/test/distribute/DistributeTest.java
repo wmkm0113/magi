@@ -1,32 +1,47 @@
 package org.nervousync.magi.test.distribute;
 
 import jakarta.annotation.Nonnull;
-import org.nervousync.brain.configs.BrainConfigure;
 import org.nervousync.brain.configs.builder.BrainConfigureBuilder;
 import org.nervousync.brain.configs.builder.SchemaConfigBuilder;
 import org.nervousync.brain.configs.server.ServerInfo;
+import org.nervousync.brain.enumerations.ddl.DDLType;
 import org.nervousync.brain.enumerations.query.JoinType;
 import org.nervousync.brain.query.QueryInfo;
+import org.nervousync.builder.ParentBuilder;
 import org.nervousync.commons.Globals;
-import org.nervousync.magi.query.builder.QueryBuilder;
+import org.nervousync.enumerations.beans.StringType;
+import org.nervousync.enumerations.security.EncodeType;
+import org.nervousync.magi.config.MagiConfigure;
+import org.nervousync.magi.config.builder.MagiConfigureBuilder;
+import org.nervousync.magi.query.builder.EntityQueryBuilder;
 import org.nervousync.magi.test.BaseTest;
 import org.nervousync.magi.test.distribute.entity.DistributeReference;
 import org.nervousync.magi.test.distribute.entity.TestDistribute;
-import org.nervousync.utils.ConvertUtils;
-import org.nervousync.utils.FileUtils;
-import org.nervousync.utils.SecurityUtils;
-import org.nervousync.utils.StringUtils;
+import org.nervousync.utils.core.BeanUtils;
+import org.nervousync.utils.core.FileUtils;
+import org.nervousync.utils.core.StringUtils;
+import org.nervousync.utils.security.SecurityUtils;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 
+/**
+ * <h2 class="en-US">Abstract class of distribute database test instance</h2>
+ * <h2 class="zh-CN">分布式数据库测试抽象类</h2>
+ *
+ * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
+ * @version $Revision: 1.0.0 $ $Date: Nov 18, 2022 15:22:27 $
+ */
 public abstract class DistributeTest extends BaseTest<TestDistribute> {
 
 	protected DistributeTest(@Nonnull final String dialectName, final String databaseName,
-	                         final List<ServerInfo> serverList, final boolean useSSL,
+	                         final List<ServerInfo> serverList, final boolean ssl,
 	                         final String userName, final String passWord) throws Exception {
-		super(generateConfigure(dialectName, databaseName, serverList, useSSL, userName, passWord),
+		super(generateConfigure(dialectName, databaseName, serverList, ssl, userName, passWord),
 				TestDistribute.class, DistributeReference.class);
 	}
 
@@ -43,13 +58,13 @@ public abstract class DistributeTest extends BaseTest<TestDistribute> {
 		testDistribute.setTestBigDecimal(new BigDecimal(Math.PI));
 		testDistribute.setTestBoolean(true);
 		testDistribute.setTestByte((byte) 227);
-		testDistribute.setTestDate(new Date());
+		testDistribute.setTestDate(LocalDate.now());
 		testDistribute.setTestDouble(227d);
 		testDistribute.setTestFloat(227f);
 		testDistribute.setTestInt(227);
 		testDistribute.setTestShort(Short.parseShort("227"));
-		testDistribute.setTestTime(new Date());
-		testDistribute.setTestTimestamp(new Date());
+		testDistribute.setTestTime(LocalTime.now());
+		testDistribute.setTestTimestamp(LocalDateTime.now());
 
 		DistributeReference distributeReference = new DistributeReference();
 		distributeReference.setRefStatue(1);
@@ -74,15 +89,15 @@ public abstract class DistributeTest extends BaseTest<TestDistribute> {
 
 	@Override
 	protected void verifyRetrieve(TestDistribute mainObject) {
-		this.logger.info("Test_Retrieve_Record", mainObject.toFormattedJson());
-		String md5 = ConvertUtils.toHex(SecurityUtils.SHA256(mainObject.getMsgBytes()));
-		this.logger.info("Test_Retrieve_Verify", md5.equals(RESOURCE_VALIDATE));
-		this.logger.info("Test_Retrieve_Reference", mainObject.getDistributeReference().toFormattedJson());
+		this.logger.info("Test_Retrieve_Record", BeanUtils.objectToString(mainObject, StringType.JSON));
+		String sha256 = SecurityUtils.SHA256(mainObject.getMsgBytes(), EncodeType.HEX);
+		this.logger.info("Test_Retrieve_Verify", RESOURCE_VALIDATE.equalsIgnoreCase(sha256));
+		this.logger.info("Test_Retrieve_Reference", BeanUtils.objectToString(mainObject.getDistributeReference(), StringType.JSON));
 	}
 
 	@Override
 	protected TestDistribute modifyObject(TestDistribute mainObject) {
-		this.logger.info("Test_Update_Record", mainObject.toFormattedJson());
+		this.logger.info("Test_Update_Record", BeanUtils.objectToString(mainObject, StringType.JSON));
 		mainObject.setMsgTitle("Update title");
 		Optional.ofNullable(mainObject.getDistributeReference())
 				.ifPresent(distributeReference -> distributeReference.setRefStatue(2));
@@ -91,38 +106,45 @@ public abstract class DistributeTest extends BaseTest<TestDistribute> {
 
 	@Override
 	protected QueryInfo queryInfo() throws Exception {
-		return QueryBuilder.newBuilder(TestDistribute.class)
-				.joinTable(JoinType.LEFT, TestDistribute.class, DistributeReference.class, Globals.DEFAULT_VALUE_STRING)
-				.equalTo(TestDistribute.class, "msgTitle", "Update title")
-				.equalTo(DistributeReference.class, "refStatue", 2)
-				.configPager(2, 5)
-				.confirm();
+		return EntityQueryBuilder.newBuilder(TestDistribute.class)
+				.joins()
+				.referenceJoin(JoinType.LEFT, TestDistribute.class, DistributeReference.class, "ref").confirm()
+				.where()
+				.equalTo(TestDistribute.class, "msgTitle").matchValue("Update title").confirm()
+				.equalTo(DistributeReference.class, "refStatue").matchValue(2).confirm()
+				.confirm()
+				.pager(1, 5)
+				.build();
 	}
 
 	@Override
 	protected void verifyQueryRecord(int index, TestDistribute mainObject) {
-		this.logger.info("Test_Query_Record", index, mainObject.toFormattedJson());
+		this.logger.info("Test_Query_Record", index, BeanUtils.objectToString(mainObject, StringType.JSON));
 	}
 
-	private static BrainConfigure generateConfigure(final String dialectName, final String databaseName,
-	                                           final List<ServerInfo> serverList, final boolean useSSL,
-	                                           final String userName, final String passWord) throws Exception {
-		SchemaConfigBuilder.DistributeConfigBuilder configBuilder = BrainConfigureBuilder.newBuilder()
-				.distributeConfig("Distribute")
-				.dialect(dialectName)
-				.databaseName(databaseName)
-				.useSsl(useSSL)
-				.lowQuery(1000)
-				.request(15)
-				.timeout(5, 5);
+	private static MagiConfigure generateConfigure(final String dialectName, final String databaseName,
+	                                               final List<ServerInfo> serverList, final boolean ssl,
+	                                               final String userName, final String passWord) {
+		SchemaConfigBuilder.DistributeConfigBuilder<BrainConfigureBuilder<MagiConfigureBuilder<ParentBuilder>>> configBuilder =
+				MagiConfigureBuilder.newBuilder(null, new MagiConfigure()).brainBuilder()
+						.ddlMode(DDLType.SYNCHRONIZE)
+						.distributeConfig("Distribute")
+						.dialect(dialectName)
+						.databaseName(databaseName)
+						.useSsl(ssl)
+						.lowQuery(1000)
+						.request(15)
+						.timeout(5, 5);
 		for (ServerInfo serverInfo : serverList) {
-			configBuilder.addServer(serverInfo.getServerName(), serverInfo.getServerAddress(),
-					serverInfo.getServerPort(), serverInfo.getServerLevel());
+			configBuilder = configBuilder.serverBuilder(serverInfo.getServerAddress(), serverInfo.getServerPort())
+					.name(serverInfo.getServerName())
+					.level(serverInfo.getServerLevel())
+					.confirm();
 		}
 		if (StringUtils.notBlank(userName)) {
-			configBuilder.userAuthenticationBuilder().authenticate(userName, passWord)
-					.confirmParent(SchemaConfigBuilder.DistributeConfigBuilder.class);
+			configBuilder = configBuilder.basicAuth(userName, passWord);
 		}
-		return configBuilder.confirmParent(BrainConfigureBuilder.class).defaultSchema("Distribute").confirm();
+
+		return configBuilder.confirm().defaultSchema("Distribute").confirm().build();
 	}
 }

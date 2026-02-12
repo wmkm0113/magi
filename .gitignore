@@ -36,4 +36,4 @@ bin/
 /mongodb/target/
 /nodeps/target/
 /target/
-/test/target/
+*/target/

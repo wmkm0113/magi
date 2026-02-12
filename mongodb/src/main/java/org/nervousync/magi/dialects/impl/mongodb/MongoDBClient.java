@@ -23,11 +23,9 @@ import com.mongodb.client.model.IndexOptions;
 import com.mongodb.connection.ClusterConnectionMode;
 import com.mongodb.connection.ClusterType;
 import jakarta.annotation.Nonnull;
-import jakarta.persistence.LockModeType;
 import org.bson.Document;
 import org.bson.types.Binary;
 import org.bson.types.Decimal128;
-import org.jetbrains.annotations.NotNull;
 import org.nervousync.brain.commons.BrainCommons;
 import org.nervousync.brain.configs.auth.Authentication;
 import org.nervousync.brain.configs.auth.impl.TokenAuthentication;
@@ -41,28 +39,36 @@ import org.nervousync.brain.configs.transactional.TransactionalConfig;
 import org.nervousync.brain.defines.ColumnDefine;
 import org.nervousync.brain.defines.IndexDefine;
 import org.nervousync.brain.defines.TableDefine;
+import org.nervousync.brain.dialects.Dialect;
 import org.nervousync.brain.dialects.distribute.DistributeClient;
 import org.nervousync.brain.enumerations.ddl.DDLType;
 import org.nervousync.brain.enumerations.ddl.DropOption;
 import org.nervousync.brain.enumerations.query.ItemType;
 import org.nervousync.brain.exceptions.data.RetrieveException;
 import org.nervousync.brain.exceptions.sql.MultilingualSQLException;
+import org.nervousync.brain.manager.TableManager;
+import org.nervousync.brain.query.PartialCollection;
 import org.nervousync.brain.query.QueryInfo;
 import org.nervousync.brain.query.condition.Condition;
 import org.nervousync.brain.query.condition.impl.ColumnCondition;
 import org.nervousync.brain.query.condition.impl.GroupCondition;
-import org.nervousync.brain.query.core.AbstractItem;
+import org.nervousync.brain.query.core.QueryFrom;
+import org.nervousync.brain.query.core.QueryItem;
 import org.nervousync.brain.query.data.RangesData;
+import org.nervousync.brain.query.from.FromTable;
 import org.nervousync.brain.query.item.ColumnItem;
 import org.nervousync.brain.query.join.JoinInfo;
 import org.nervousync.brain.query.join.QueryJoin;
+import org.nervousync.brain.query.join.TableQueryJoin;
 import org.nervousync.brain.query.param.AbstractParameter;
 import org.nervousync.brain.query.param.impl.ArraysParameter;
 import org.nervousync.brain.query.param.impl.ConstantParameter;
 import org.nervousync.brain.query.param.impl.RangesParameter;
 import org.nervousync.commons.Globals;
-import org.nervousync.utils.CertificateUtils;
-import org.nervousync.utils.StringUtils;
+import org.nervousync.magi.entity.EntityFactory;
+import org.nervousync.utils.cert.CertificateUtils;
+import org.nervousync.utils.core.ObjectUtils;
+import org.nervousync.utils.core.StringUtils;
 
 import javax.net.ssl.*;
 import java.security.KeyStore;
@@ -73,13 +79,47 @@ import java.sql.Types;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * <h2 class="en-US">MongoDB database client implementation class</h2>
+ * <h2 class="zh-CN">MongoDB数据库客户端实现类</h2>
+ *
+ * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
+ * @version $Revision: 1.0.0 $ $Date: Nov 18, 2022 15:22:27 $
+ */
 public final class MongoDBClient implements DistributeClient {
 
-	private final String defaultName;
-	private final MongoDBDialectImpl dialect;
+	/**
+	 * <span class="en-US">Default database name</span>
+	 * <span class="zh-CN">默认数据库名</span>
+	 */
+	private final String databaseName;
+	/**
+	 * <span class="en-US">Database dialect instance object</span>
+	 * <span class="zh-CN">数据库方言实例对象</span>
+	 */
+	private final Dialect dialect;
+	/**
+	 * <span class="en-US">MongoDB client instance object</span>
+	 * <span class="zh-CN">MongoDB客户端实例对象</span>
+	 */
 	private final MongoClient mongoClient;
+	/**
+	 * <span class="en-US">Database connection used by the current thread</span>
+	 * <span class="zh-CN">当前线程使用的数据库连接</span>
+	 */
 	private final ThreadLocal<ClientSession> threadLocal;
 
+	/**
+	 * <h3 class="en-US">Constructor method for MongoDB database client implementation class</h3>
+	 * <h3 class="zh-CN">MongoDB数据库客户端实现类的构造方法</h3>
+	 *
+	 * @param dialect      <span class="en-US">Database dialect instance object</span>
+	 *                     <span class="zh-CN">数据库方言实例对象</span>
+	 * @param schemaConfig <span class="en-US">Data source configure information</span>
+	 *                     <span class="zh-CN">数据源配置信息</span>
+	 * @throws Exception <span class="en-US">An error occurs when configure SSL</span>
+	 *                   <span class="zh-CN">设置SSL时出错</span>
+	 */
 	MongoDBClient(@Nonnull final MongoDBDialectImpl dialect, @Nonnull final DistributeSchemaConfig schemaConfig)
 			throws Exception {
 		MongoClientSettings.Builder settingsBuilder =
@@ -168,65 +208,14 @@ public final class MongoDBClient implements DistributeClient {
 									builder.invalidHostNameAllowed(Boolean.FALSE).context(sslContext)));
 		}
 
-		this.defaultName = schemaConfig.getDatabaseName();
+		this.databaseName = schemaConfig.getDatabaseName();
 		this.dialect = dialect;
 		this.mongoClient = MongoClients.create(settingsBuilder.build());
 		this.threadLocal = new ThreadLocal<>();
 	}
 
-	private SSLContext sslContext(final TrustStoreAuthentication trustStoreAuthentication,
-	                              final TrustStore trustStore) throws Exception {
-		if (trustStoreAuthentication == null || StringUtils.isEmpty(trustStoreAuthentication.getCertificateName())) {
-			return null;
-		}
-		TrustManager[] trustManagers = null;
-		if (trustStore != null) {
-			trustManagers = this.trustManagers(trustStore.getTrustStorePath(), trustStore.getTrustStorePassword());
-		}
-		SSLContext sslContext = SSLContext.getDefault();
-		sslContext.init(
-				this.keyManagers(trustStoreAuthentication.getTrustStorePath(),
-						trustStoreAuthentication.getTrustStorePassword()),
-				trustManagers, new SecureRandom());
-		return sslContext;
-	}
-
-	private KeyManager[] keyManagers(final String storePath, final String storePassword) throws Exception {
-		String password = StringUtils.isEmpty(storePassword) ? Globals.DEFAULT_VALUE_STRING : storePassword;
-		KeyStore keyStore = CertificateUtils.loadKeyStore(storePath, password);
-		KeyManagerFactory keyManagerFactory =
-				KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-		keyManagerFactory.init(keyStore, password.toCharArray());
-		return keyManagerFactory.getKeyManagers();
-	}
-
-	private TrustManager[] trustManagers(final String storePath, final String storePassword) throws Exception {
-		String password = StringUtils.isEmpty(storePassword) ? Globals.DEFAULT_VALUE_STRING : storePassword;
-		KeyStore keyStore = CertificateUtils.loadKeyStore(storePath, password);
-		TrustManagerFactory trustManagerFactory =
-				TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-		trustManagerFactory.init(keyStore);
-		return trustManagerFactory.getTrustManagers();
-	}
-
-	private SSLContext sslContext(final TrustStore trustStore) throws Exception {
-		if (trustStore == null) {
-			return null;
-		}
-		SSLContext sslContext = SSLContext.getDefault();
-		sslContext.init(this.keyManagers(trustStore.getTrustStorePath(), trustStore.getTrustStorePassword()),
-				this.trustManagers(trustStore.getTrustStorePath(), trustStore.getTrustStorePassword()),
-				new SecureRandom());
-		return sslContext;
-	}
-
 	@Override
 	public void configRetry(final int retryCount, final long retryPeriod) {
-	}
-
-	@Override
-	public void initSharding(final String shardingKey) {
-		this.mongoClient.getDatabase(StringUtils.isEmpty(shardingKey) ? this.defaultName : shardingKey);
 	}
 
 	@Override
@@ -280,7 +269,7 @@ public final class MongoDBClient implements DistributeClient {
 	}
 
 	@Override
-	public void truncateTable(@NotNull final TableDefine tableDefine) {
+	public void truncateTable(@Nonnull final TableDefine tableDefine) {
 		this.dropTable(tableDefine, DropOption.NONE);
 	}
 
@@ -295,7 +284,7 @@ public final class MongoDBClient implements DistributeClient {
 	}
 
 	@Override
-	public void dropTable(@NotNull final TableDefine tableDefine, @NotNull final DropOption dropOption) {
+	public void dropTable(@Nonnull final TableDefine tableDefine, @Nonnull final DropOption dropOption) {
 		for (String databaseName : this.mongoClient.listDatabaseNames()) {
 			MongoDatabase mongoDatabase = this.mongoClient.getDatabase(databaseName);
 			mongoDatabase.getCollection(this.dialect.nameCase(tableDefine.getTableName())).drop();
@@ -303,21 +292,16 @@ public final class MongoDBClient implements DistributeClient {
 	}
 
 	@Override
-	public boolean lockRecord(final String shardingDatabase, @NotNull final TableDefine tableDefine,
-	                          @NotNull final Map<String, Object> filterMap) {
+	public boolean lockRecord(@Nonnull final TableDefine tableDefine, @Nonnull final Map<String, Object> filterMap) {
 		//  Do nothing
 		return Boolean.TRUE;
 	}
 
 	@Override
-	public Map<String, Object> insert(final String shardingDatabase, @NotNull final TableDefine tableDefine,
-	                                  @NotNull final Map<String, Object> dataMap) {
-		if (StringUtils.isEmpty(shardingDatabase)) {
-			return this.insert(this.defaultName, tableDefine, dataMap);
-		}
-		this.initTable(DDLType.CREATE, tableDefine, shardingDatabase);
+	public Map<String, Object> insert(@Nonnull final TableDefine tableDefine,
+	                                  @Nonnull final Map<String, Object> dataMap) {
 		Document document = new Document(dataMap);
-		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(shardingDatabase);
+		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
 		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(tableDefine.getTableName());
 		ClientSession clientSession = this.threadLocal.get();
 		if (clientSession == null) {
@@ -325,35 +309,32 @@ public final class MongoDBClient implements DistributeClient {
 		} else {
 			mongoCollection.insertOne(clientSession, document);
 		}
-		return Map.of();
+		return dataMap;
 	}
 
 	@Override
-	public Map<String, Object> retrieve(final String shardingDatabase, @NotNull final TableDefine tableDefine,
-	                                    final String columns, @NotNull final Map<String, Object> filterMap,
-	                                    final boolean forUpdate) throws Exception {
-		if (StringUtils.isEmpty(shardingDatabase)) {
-			return this.retrieve(this.defaultName, tableDefine, columns, filterMap, forUpdate);
-		}
+	public Map<String, Object> retrieve(@Nonnull final TableDefine tableDefine, final String columns,
+	                                    @Nonnull final Map<String, Object> filterMap, final boolean forUpdate) {
 		Document findColumns = new Document();
-		if ("*".equalsIgnoreCase(columns) || forUpdate) {
+		findColumns.put("_id", 0);
+		Map<String, Integer> jdbcTypeMap = new HashMap<>();
+		if ("*".equalsIgnoreCase(columns) || forUpdate || StringUtils.isEmpty(columns)) {
 			tableDefine.getColumnDefines()
-					.forEach(columnDefine ->
-							findColumns.append(this.dialect.nameCase(columnDefine.getColumnName()), 1));
+					.forEach(columnDefine -> {
+						findColumns.append(this.dialect.nameCase(columnDefine.getColumnName()), 1);
+						jdbcTypeMap.put(columnDefine.getColumnName(), columnDefine.getJdbcType());
+					});
 		} else {
-			if (StringUtils.isEmpty(columns)) {
-				tableDefine.getColumnDefines()
-						.stream()
-						.filter(columnDefine -> !columnDefine.isLazyLoad())
-						.forEach(columnDefine ->
-								findColumns.append(this.dialect.nameCase(columnDefine.getColumnName()), 1));
-			} else {
-				Arrays.asList(StringUtils.tokenizeToStringArray(columns, ","))
-						.forEach(columnName -> findColumns.append(this.dialect.nameCase(columnName), 1));
-			}
+			Arrays.asList(StringUtils.tokenizeToStringArray(columns, ","))
+					.forEach(columnName ->
+							Optional.ofNullable(tableDefine.column(columnName))
+									.ifPresent(columnDefine -> {
+										findColumns.append(this.dialect.nameCase(columnDefine.getColumnName()), 1);
+										jdbcTypeMap.put(columnDefine.getColumnName(), columnDefine.getJdbcType());
+									}));
 		}
 		Document filterDocument = new Document(filterMap);
-		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(shardingDatabase);
+		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
 		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(tableDefine.getTableName());
 		if (mongoCollection.countDocuments(filterDocument) > 1L) {
 			throw new RetrieveException(0x00DB00000028L);
@@ -366,19 +347,16 @@ public final class MongoDBClient implements DistributeClient {
 			document = mongoCollection.find(clientSession, filterDocument).projection(findColumns).first();
 		}
 		return Optional.ofNullable(document)
-				.map(result -> this.convertResult(result, tableDefine))
+				.map(result -> this.convertResult(result, jdbcTypeMap))
 				.orElse(Map.of());
 	}
 
 	@Override
-	public int update(final String shardingDatabase, @NotNull final TableDefine tableDefine,
-	                  @NotNull final Map<String, Object> dataMap, @NotNull final Map<String, Object> filterMap) {
-		if (StringUtils.isEmpty(shardingDatabase)) {
-			return this.update(this.defaultName, tableDefine, dataMap, filterMap);
-		}
+	public int update(@Nonnull final TableDefine tableDefine,
+	                  @Nonnull final Map<String, Object> dataMap, @Nonnull final Map<String, Object> filterMap) {
 		Document updateDocument = new Document("$set", dataMap);
 		Document filterDocument = new Document(filterMap);
-		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(shardingDatabase);
+		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
 		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(tableDefine.getTableName());
 		ClientSession clientSession = this.threadLocal.get();
 		long modifiedCount;
@@ -392,13 +370,9 @@ public final class MongoDBClient implements DistributeClient {
 	}
 
 	@Override
-	public int delete(final String shardingDatabase, @NotNull final TableDefine tableDefine,
-	                  @NotNull final Map<String, Object> filterMap) {
-		if (StringUtils.isEmpty(shardingDatabase)) {
-			return this.delete(this.defaultName, tableDefine, filterMap);
-		}
+	public int delete(@Nonnull final TableDefine tableDefine, @Nonnull final Map<String, Object> filterMap) {
 		Document filterDocument = new Document(filterMap);
-		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(shardingDatabase);
+		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
 		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(tableDefine.getTableName());
 		ClientSession clientSession = this.threadLocal.get();
 		long deletedCount;
@@ -411,14 +385,15 @@ public final class MongoDBClient implements DistributeClient {
 	}
 
 	@Override
-	public List<Map<String, Object>> query(final String shardingDatabase, @NotNull final TableDefine tableDefine,
-	                                       @NotNull final QueryInfo queryInfo) throws Exception {
-		if (StringUtils.isEmpty(shardingDatabase)) {
-			return this.query(this.defaultName, tableDefine, queryInfo);
+	public PartialCollection query(@Nonnull final QueryInfo queryInfo) throws Exception {
+		String mainDocument = this.tableName(queryInfo.getQueryFrom());
+		if (StringUtils.isEmpty(mainDocument)) {
+			throw new MultilingualSQLException(0x00DB00010020L);
 		}
-		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(shardingDatabase);
-		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(queryInfo.getTableName());
+		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
+		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(mainDocument);
 		ClientSession clientSession = this.threadLocal.get();
+		Map<String, Integer> jdbcTypeMap = new HashMap<>();
 		List<Map<String, Object>> resultList = new ArrayList<>();
 		if (queryInfo.getQueryJoins().isEmpty()) {
 			Document queryDocument = this.conditionsToDocument(queryInfo.getConditionList(), Map.of());
@@ -426,20 +401,14 @@ public final class MongoDBClient implements DistributeClient {
 				throw new MultilingualSQLException(0x00DB000A0001L);
 			}
 			Document projectionDocument = new Document();
-			if (queryInfo.getItemList().isEmpty()) {
-				tableDefine.getColumnDefines()
-						.stream()
-						.filter(columnDefine -> !columnDefine.isLazyLoad())
-						.forEach(columnDefine ->
-								projectionDocument.append(this.dialect.nameCase(columnDefine.getColumnName()), 1));
-			} else {
-				queryInfo.getItemList()
-						.stream()
-						.filter(abstractItem -> ItemType.COLUMN.equals(abstractItem.getItemType()))
-						.forEach(abstractItem -> {
-							String columnName = this.dialect.nameCase(((ColumnItem) abstractItem).getColumnName());
-							projectionDocument.put(columnName, 1);
-						});
+			TableManager tableManager = TableManager.getInstance();
+			for (QueryItem abstractItem : queryInfo.getItemList()) {
+				if (ItemType.COLUMN.equals(abstractItem.getItemType())) {
+					ColumnItem columnItem = (ColumnItem) abstractItem;
+					String columnName = this.dialect.nameCase(columnItem.getColumnName());
+					projectionDocument.put(columnName, 1);
+					jdbcTypeMap.put(columnName, tableManager.jdbcType(columnItem.getTableName(), columnName));
+				}
 			}
 			Document sortDocument = new Document();
 			queryInfo.getOrderByList().forEach(orderBy -> {
@@ -464,33 +433,28 @@ public final class MongoDBClient implements DistributeClient {
 						(queryInfo.getPageNo() - 1) * queryInfo.getPageLimit());
 				findIterable.skip(offset).limit(queryInfo.getPageLimit());
 			}
-			findIterable.forEach(document -> resultList.add(this.convertResult(document, tableDefine)));
+			findIterable.forEach(document -> resultList.add(this.convertResult(document, jdbcTypeMap)));
 		} else {
-			List<Document> queryDocuments = this.parseQuery(tableDefine, queryInfo, Boolean.FALSE);
+			List<Document> queryDocuments = this.parseQuery(queryInfo, jdbcTypeMap, Boolean.FALSE);
 			if (queryDocuments.isEmpty()) {
 				throw new MultilingualSQLException(0x00DB000A0001L);
 			}
 			if (clientSession == null) {
 				mongoCollection.aggregate(queryDocuments)
-						.forEach(document -> resultList.add(this.convertResult(document, tableDefine)));
+						.forEach(document -> resultList.add(this.convertResult(document, jdbcTypeMap)));
 			} else {
 				mongoCollection.aggregate(clientSession, queryDocuments)
-						.forEach(document -> resultList.add(this.convertResult(document, tableDefine)));
+						.forEach(document -> resultList.add(this.convertResult(document, jdbcTypeMap)));
 			}
 		}
-		return resultList;
+		return new PartialCollection(resultList, this.queryTotal(queryInfo));
 	}
 
-	private Map<String, Object> convertResult(final Document document, final TableDefine tableDefine) {
+	private Map<String, Object> convertResult(final Document document, @Nonnull final Map<String, Integer> jdbcTypeMap) {
 		Map<String, Object> resultMap = new HashMap<>();
 		for (Map.Entry<String, Object> entry : document.entrySet()) {
-			ColumnDefine columnDefine = tableDefine.column(entry.getKey());
-			if (columnDefine == null) {
-				continue;
-			}
-
 			Object value = entry.getValue();
-			switch (columnDefine.getJdbcType()) {
+			switch (jdbcTypeMap.get(entry.getKey())) {
 				case Types.BLOB:
 					value = ((Binary) value).getData();
 					break;
@@ -506,6 +470,15 @@ public final class MongoDBClient implements DistributeClient {
 				case Types.DECIMAL:
 					value = ((Decimal128) value).bigDecimalValue();
 					break;
+				case Types.DATE:
+					value = new java.sql.Date(((Date) value).getTime());
+					break;
+				case Types.TIME:
+					value = new java.sql.Time(((Date) value).getTime());
+					break;
+				case Types.TIMESTAMP:
+					value = new java.sql.Timestamp(((Date) value).getTime());
+					break;
 			}
 			resultMap.put(entry.getKey(), value);
 		}
@@ -513,37 +486,13 @@ public final class MongoDBClient implements DistributeClient {
 	}
 
 	@Override
-	public List<Map<String, Object>> queryForUpdate(final String shardingDatabase,
-	                                                @NotNull final TableDefine tableDefine,
-	                                                final List<Condition> conditionList, final LockModeType lockOption)
-			throws Exception {
-		if (StringUtils.isEmpty(shardingDatabase)) {
-			return this.queryForUpdate(this.defaultName, tableDefine, conditionList, lockOption);
+	public Long queryTotal(final QueryInfo queryInfo) throws Exception {
+		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
+		String mainDocument = this.tableName(queryInfo.getQueryFrom());
+		if (StringUtils.isEmpty(mainDocument)) {
+			throw new MultilingualSQLException(0x00DB00010020L);
 		}
-		Document queryDocument = this.conditionsToDocument(conditionList, Map.of());
-		if (queryDocument == null) {
-			throw new MultilingualSQLException(0x00DB000A0001L);
-		}
-		List<Map<String, Object>> resultList = new ArrayList<>();
-		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(shardingDatabase);
-		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(tableDefine.getTableName());
-		ClientSession clientSession = this.threadLocal.get();
-		if (clientSession == null) {
-			mongoCollection.find(queryDocument).forEach(resultList::add);
-		} else {
-			mongoCollection.find(clientSession, queryDocument).forEach(resultList::add);
-		}
-		return resultList;
-	}
-
-	@Override
-	public Long queryTotal(final String shardingDatabase, @NotNull final TableDefine tableDefine,
-	                       final QueryInfo queryInfo) throws Exception {
-		if (StringUtils.isEmpty(shardingDatabase)) {
-			return this.queryTotal(this.defaultName, tableDefine, queryInfo);
-		}
-		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(shardingDatabase);
-		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(queryInfo.getTableName());
+		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(mainDocument);
 		ClientSession clientSession = this.threadLocal.get();
 		if (queryInfo.getQueryJoins().isEmpty()) {
 			Document queryDocument = this.conditionsToDocument(queryInfo.getConditionList(), Map.of());
@@ -556,7 +505,7 @@ public final class MongoDBClient implements DistributeClient {
 				return mongoCollection.countDocuments(clientSession, queryDocument);
 			}
 		} else {
-			List<Document> queryDocuments = this.parseQuery(tableDefine, queryInfo, Boolean.TRUE);
+			List<Document> queryDocuments = this.parseQuery(queryInfo, null, Boolean.TRUE);
 			if (queryDocuments.isEmpty()) {
 				throw new MultilingualSQLException(0x00DB000A0001L);
 			}
@@ -568,63 +517,138 @@ public final class MongoDBClient implements DistributeClient {
 			}
 			try (MongoCursor<Document> cursor = aggregateIterable.iterator()) {
 				if (cursor.hasNext()) {
-					return cursor.next().getInteger("totalCount").longValue();
+					return cursor.next().getInteger("COUNT").longValue();
 				}
 			}
 		}
 		return (long) Globals.INITIALIZE_INT_VALUE;
 	}
 
-	private List<Document> parseQuery(final TableDefine tableDefine, @Nonnull final QueryInfo queryInfo,
-	                                  final boolean totalCount)
+	private SSLContext sslContext(final TrustStoreAuthentication trustStoreAuthentication,
+	                              final TrustStore trustStore) throws Exception {
+		if (trustStoreAuthentication == null || StringUtils.isEmpty(trustStoreAuthentication.getCertificateName())) {
+			return null;
+		}
+		TrustManager[] trustManagers = null;
+		if (trustStore != null) {
+			trustManagers = this.trustManagers(trustStore.getStorePath(), trustStore.getStorePassword());
+		}
+		SSLContext sslContext = SSLContext.getDefault();
+		sslContext.init(
+				this.keyManagers(trustStoreAuthentication.getStorePath(), trustStoreAuthentication.getStorePassword()),
+				trustManagers, new SecureRandom());
+		return sslContext;
+	}
+
+	private KeyManager[] keyManagers(final String storePath, final String storePassword) throws Exception {
+		String password = StringUtils.isEmpty(storePassword) ? Globals.DEFAULT_VALUE_STRING : storePassword;
+		KeyStore keyStore = CertificateUtils.loadKeyStore(storePath, password);
+		KeyManagerFactory keyManagerFactory =
+				KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+		keyManagerFactory.init(keyStore, password.toCharArray());
+		return keyManagerFactory.getKeyManagers();
+	}
+
+	private TrustManager[] trustManagers(final String storePath, final String storePassword) throws Exception {
+		String password = StringUtils.isEmpty(storePassword) ? Globals.DEFAULT_VALUE_STRING : storePassword;
+		KeyStore keyStore = CertificateUtils.loadKeyStore(storePath, password);
+		TrustManagerFactory trustManagerFactory =
+				TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+		trustManagerFactory.init(keyStore);
+		return trustManagerFactory.getTrustManagers();
+	}
+
+	private SSLContext sslContext(final TrustStore trustStore) throws Exception {
+		if (trustStore == null) {
+			return null;
+		}
+		SSLContext sslContext = SSLContext.getDefault();
+		sslContext.init(this.keyManagers(trustStore.getStorePath(), trustStore.getStorePassword()),
+				this.trustManagers(trustStore.getStorePath(), trustStore.getStorePassword()),
+				new SecureRandom());
+		return sslContext;
+	}
+
+	private void registerAliasName(@Nonnull final String tableName, final String aliasName,
+	                               @Nonnull final Map<String, String> aliasMap)
 			throws SQLException {
-		if (queryInfo.getQueryJoins() == null || queryInfo.getQueryJoins().isEmpty()) {
+		if (EntityFactory.getInstance().registeredTable(tableName)) {
+			aliasMap.put(tableName.toLowerCase(), StringUtils.isEmpty(aliasName) ? tableName.toLowerCase() : aliasName);
+		} else {
+			throw new MultilingualSQLException(0x00DB00010020L);
+		}
+	}
+
+	private String tableName(@Nonnull final QueryFrom queryFrom) {
+		if (queryFrom instanceof FromTable) {
+			return ((FromTable) queryFrom).getTableName();
+		}
+		return Globals.DEFAULT_VALUE_STRING;
+	}
+
+	private String tableName(@Nonnull final QueryJoin queryJoin) {
+		if (queryJoin instanceof TableQueryJoin) {
+			return ((TableQueryJoin) queryJoin).getJoinTable();
+		}
+		return Globals.DEFAULT_VALUE_STRING;
+	}
+
+	private List<Document> parseQuery(@Nonnull final QueryInfo queryInfo, final Map<String, Integer> jdbcTypeMap,
+	                                  final boolean totalCount) throws SQLException {
+		if (queryInfo.getQueryJoins().isEmpty()) {
 			return Collections.emptyList();
 		}
-		Document itemDocument = new Document();
-		if (!totalCount) {
-			if (queryInfo.getItemList().isEmpty()) {
-				tableDefine.getColumnDefines()
-						.stream()
-						.filter(columnDefine -> !columnDefine.isLazyLoad())
-						.forEach(columnDefine ->
-								itemDocument.put(this.dialect.nameCase(columnDefine.getColumnName()), 1));
-			} else {
-				for (AbstractItem abstractItem : queryInfo.getItemList()) {
-					if (ItemType.COLUMN.equals(abstractItem.getItemType())) {
-						itemDocument.put(this.dialect.nameCase(abstractItem.unwrap(ColumnItem.class).getColumnName()),
-								1);
-					}
-				}
+		Map<String, String> aliasMap = new HashMap<>();
+		String mainDocument = this.tableName(queryInfo.getQueryFrom());
+		Set<String> drivenDocuments = new HashSet<>();
+		for (QueryJoin queryJoin : queryInfo.getQueryJoins()) {
+			if (queryJoin instanceof TableQueryJoin) {
+				this.registerAliasName(this.tableName(queryJoin), queryJoin.getAliasName(), aliasMap);
+				drivenDocuments.add(queryJoin.getDrivenIdentify().toLowerCase());
 			}
 		}
 		List<Document> queryDocuments = new ArrayList<>();
-		if (!itemDocument.isEmpty()) {
-			queryDocuments.add(new Document("$project", itemDocument));
-		}
-		Map<String, String> aliasMap = new HashMap<>();
-		queryInfo.getQueryJoins()
-				.stream()
-				.filter(queryJoin -> queryJoin.getDriverTable().equalsIgnoreCase(queryInfo.getTableName()))
-				.forEach(queryJoin -> {
-					if (!aliasMap.containsKey(queryJoin.getJoinTable())) {
-						String aliasName = "T_" + aliasMap.size();
-						if (StringUtils.notBlank(queryJoin.getAliasName())) {
-							aliasName = queryJoin.getAliasName();
-						}
-						aliasMap.put(queryJoin.getJoinTable().toLowerCase(), aliasName);
-					}
-				});
 		for (QueryJoin queryJoin : queryInfo.getQueryJoins()) {
-			if (queryJoin.getDriverTable().equalsIgnoreCase(queryInfo.getTableName())) {
-				Optional.ofNullable(this.joinDocument(queryJoin, aliasMap))
-						.ifPresent(joinDocument -> queryDocuments.add(new Document("$lookup", joinDocument)));
+			if (queryJoin instanceof TableQueryJoin) {
+				Optional.ofNullable(this.joinDocument(mainDocument, (TableQueryJoin) queryJoin, aliasMap))
+						.ifPresent(lookupDocument -> {
+							queryDocuments.add(new Document("$lookup", lookupDocument));
+							String aliasName = aliasMap.get(queryJoin.getDrivenIdentify().toLowerCase());
+							if (drivenDocuments.contains(queryJoin.getDrivenIdentify())) {
+								queryDocuments.add(new Document("$unwind", "$" + aliasName));
+							}
+						});
 			}
 		}
 		Optional.ofNullable(this.conditionsToDocument(queryInfo.getConditionList(), aliasMap))
 				.ifPresent(conditionDocument -> queryDocuments.add(new Document("$match", conditionDocument)));
+		if (!queryInfo.getItemList().isEmpty()) {
+			Document itemDocument = new Document();
+			itemDocument.put("_id", 0);
+			TableManager tableManager = TableManager.getInstance();
+			for (QueryItem queryItem : queryInfo.getItemList()) {
+				if (ItemType.COLUMN.equals(queryItem.getItemType())) {
+					ColumnItem columnItem = queryItem.unwrap(ColumnItem.class);
+					String columnLabel = aliasMap.getOrDefault(columnItem.getTableName().toLowerCase(), Globals.DEFAULT_VALUE_STRING);
+					if (StringUtils.notBlank(columnLabel)) {
+						columnLabel += BrainCommons.DEFAULT_NAME_SPLIT;
+					}
+					columnLabel += columnItem.getColumnName();
+					String aliasName = columnItem.getAliasName();
+					if (StringUtils.isEmpty(aliasName)) {
+						aliasName = columnLabel;
+					}
+					itemDocument.put(aliasName, "$" + this.dialect.nameCase(columnLabel));
+					if (jdbcTypeMap != null) {
+						jdbcTypeMap.put(aliasName,
+								tableManager.jdbcType(columnItem.getTableName(), columnItem.getColumnName()));
+					}
+				}
+			}
+			queryDocuments.add(new Document("$project", itemDocument));
+		}
 		if (totalCount) {
-			queryDocuments.add(new Document("$count", "totalCount"));
+			queryDocuments.add(new Document("$count", "COUNT"));
 		} else {
 			if (queryInfo.getPageLimit() > Globals.INITIALIZE_INT_VALUE) {
 				int skipCount = Globals.INITIALIZE_INT_VALUE;
@@ -638,31 +662,46 @@ public final class MongoDBClient implements DistributeClient {
 		return queryDocuments;
 	}
 
-	private Document joinDocument(@Nonnull final QueryJoin queryJoin, final Map<String, String> aliasMap) {
+	private Document joinDocument(final String mainDocument, final TableQueryJoin queryJoin,
+	                              final Map<String, String> aliasMap) throws SQLException {
 		List<JoinInfo> joinColumns = queryJoin.getJoinInfos();
+		String aliasName = aliasMap.get(queryJoin.getJoinTable().toLowerCase());
 		if (joinColumns.size() == 1) {
 			JoinInfo joinInfo = joinColumns.get(0);
-			if (StringUtils.isEmpty(joinInfo.getJoinKey()) || StringUtils.isEmpty(joinInfo.getReferenceKey())) {
+			if (StringUtils.isEmpty(joinInfo.getLeftKey()) || StringUtils.isEmpty(joinInfo.getRightKey())) {
 				return null;
 			}
+			String localField = ObjectUtils.nullSafeEquals(queryJoin.getDrivenIdentify(), mainDocument)
+					? Globals.DEFAULT_VALUE_STRING
+					: aliasMap.get(queryJoin.getDrivenIdentify().toLowerCase());
+			if (StringUtils.notBlank(localField)) {
+				localField += BrainCommons.DEFAULT_NAME_SPLIT;
+			}
+			localField += EntityFactory.getInstance().columnName(queryJoin.getDrivenIdentify(), joinInfo.getLeftKey());
 			Document document = new Document();
 			document.put("from", this.dialect.nameCase(queryJoin.getJoinTable()));
-			document.put("localField", this.dialect.nameCase(joinInfo.getJoinKey()));
-			document.put("foreignField", this.dialect.nameCase(joinInfo.getReferenceKey()));
-			document.put("as", this.dialect.nameCase(aliasMap.get(queryJoin.getJoinTable().toLowerCase())));
+			document.put("localField", this.dialect.nameCase(localField));
+			document.put("foreignField", this.dialect.nameCase(joinInfo.getRightKey()));
+			document.put("as", this.dialect.nameCase(aliasName));
 			return document;
 		} else {
 			List<Document> columnsDocument = new ArrayList<>();
 			for (JoinInfo joinInfo : joinColumns) {
-				if (StringUtils.notBlank(joinInfo.getJoinKey()) && StringUtils.notBlank(joinInfo.getReferenceKey())) {
-					String referenceKey = aliasMap.get(queryJoin.getJoinTable().toLowerCase());
-					if (StringUtils.notBlank(referenceKey)) {
-						referenceKey += BrainCommons.DEFAULT_NAME_SPLIT;
+				if (StringUtils.notBlank(joinInfo.getLeftKey()) && StringUtils.notBlank(joinInfo.getRightKey())) {
+					String localField = ObjectUtils.nullSafeEquals(queryJoin.getDrivenIdentify(), mainDocument)
+							? Globals.DEFAULT_VALUE_STRING
+							: aliasMap.get(queryJoin.getDrivenIdentify().toLowerCase());
+					if (StringUtils.notBlank(localField)) {
+						localField += BrainCommons.DEFAULT_NAME_SPLIT;
 					}
-					referenceKey += joinInfo.getReferenceKey();
+					localField += EntityFactory.getInstance().columnName(queryJoin.getDrivenIdentify(), joinInfo.getLeftKey());
+					String foreignField = aliasMap.get(queryJoin.getJoinTable().toLowerCase());
+					if (StringUtils.notBlank(foreignField)) {
+						foreignField += BrainCommons.DEFAULT_NAME_SPLIT;
+					}
+					foreignField += joinInfo.getRightKey();
 					columnsDocument.add(new Document("$eq",
-							new Document(this.dialect.nameCase(joinInfo.getJoinKey()),
-									this.dialect.nameCase(referenceKey))));
+							new Document(this.dialect.nameCase(localField), this.dialect.nameCase(foreignField))));
 				}
 			}
 			if (columnsDocument.isEmpty()) {
@@ -672,9 +711,7 @@ public final class MongoDBClient implements DistributeClient {
 			document.put("from", this.dialect.nameCase(queryJoin.getJoinTable()));
 			document.put("pipeline",
 					new Document("$match", new Document("$expr", new Document("$and", columnsDocument))));
-			if (StringUtils.notBlank(queryJoin.getAliasName())) {
-				document.put("as", this.dialect.nameCase(queryJoin.getAliasName()));
-			}
+			document.put("as", this.dialect.nameCase(aliasName));
 			return document;
 		}
 	}
@@ -814,13 +851,8 @@ public final class MongoDBClient implements DistributeClient {
 	}
 
 	@Override
-	public void initTable(@NotNull final DDLType ddlType, @NotNull final TableDefine tableDefine,
-	                      final String shardingDatabase) {
-		if (StringUtils.isEmpty(shardingDatabase)) {
-			this.initTable(ddlType, tableDefine, this.defaultName);
-			return;
-		}
-		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(shardingDatabase);
+	public void initTable(@Nonnull final DDLType ddlType, @Nonnull final TableDefine tableDefine) {
+		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
 		if (mongoDatabase.listCollectionNames().into(new ArrayList<>()).contains(tableDefine.getTableName())) {
 			return;
 		}

@@ -20,7 +20,7 @@ package org.nervousync.magi.annotations.data;
 import java.lang.annotation.*;
 
 /**
- * <h2 class="en-US">The annotation of histories column names</h2>
+ * <h2 class="en-US">The annotation of histories' column names</h2>
  * <h2 class="zh-CN">历史列名注解</h2>
  *
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
@@ -32,6 +32,9 @@ import java.lang.annotation.*;
 public @interface HistoriesNames {
 
 	/**
+	 * <h3 class="en-US">Obtain the history names array</h3>
+	 * <h3 class="zh-CN">获取历史列名数组</h3>
+	 *
      * @return <span class="en-US">History names array</span>
      * <span class="zh-CN">历史列名数组</span>
 	 */

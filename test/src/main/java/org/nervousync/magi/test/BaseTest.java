@@ -1,25 +1,37 @@
 package org.nervousync.magi.test;
 
-import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.*;
-import org.nervousync.brain.configs.BrainConfigure;
 import org.nervousync.brain.configs.transactional.TransactionalConfig;
 import org.nervousync.brain.exceptions.data.InsertException;
+import org.nervousync.brain.query.PartialCollection;
 import org.nervousync.brain.query.QueryInfo;
 import org.nervousync.commons.Globals;
+import org.nervousync.enumerations.beans.StringType;
+import org.nervousync.enumerations.logger.LogLevel;
+import org.nervousync.enumerations.security.EncodeType;
 import org.nervousync.magi.annotations.transactional.Transactional;
+import org.nervousync.magi.config.MagiConfigure;
 import org.nervousync.magi.entity.BaseObject;
 import org.nervousync.magi.entity.EntityFactory;
 import org.nervousync.magi.enumerations.transactional.Isolation;
-import org.nervousync.magi.query.PartialCollection;
-import org.nervousync.utils.*;
+import org.nervousync.utils.core.*;
+import org.nervousync.utils.logger.LoggerUtils;
+import org.nervousync.utils.security.SecurityUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
+/**
+ * <h2 class="en-US">Abstract class of database test instance</h2>
+ * <h2 class="zh-CN">数据库测试抽象类</h2>
+ *
+ * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
+ * @version $Revision: 1.0.0 $ $Date: Nov 18, 2022 15:22:27 $
+ */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public abstract class BaseTest<T extends BaseObject> {
@@ -32,18 +44,18 @@ public abstract class BaseTest<T extends BaseObject> {
 	protected static final String RESOURCE_VALIDATE;
 
 	static {
-		LoggerUtils.initLoggerConfigure(Level.INFO, LoggerUtils.newLogger("org.nervousync", Level.DEBUG));
+		LoggerUtils.initLoggerConfigure(LogLevel.INFO, LoggerUtils.newLogger("org.nervousync", LogLevel.DEBUG));
 		String resValidate;
 		try {
 			byte[] fileBytes = FileUtils.readFileBytes("classpath:org/nervousync/magi/test/resource.jpg");
-			resValidate = ConvertUtils.toHex(SecurityUtils.SHA256(fileBytes));
+			resValidate = SecurityUtils.SHA256(fileBytes, EncodeType.HEX);
 		} catch (IOException e) {
 			resValidate = Globals.DEFAULT_VALUE_STRING;
 		}
 		RESOURCE_VALIDATE = resValidate;
 	}
 
-	protected BaseTest(final BrainConfigure configure, final Class<T> mainClass, final Class<?>... entityClasses)
+	protected BaseTest(final MagiConfigure configure, final Class<T> mainClass, final Class<?>... entityClasses)
 			throws Exception {
 		this.mainClass = mainClass;
 		List<Class<?>> classList = new ArrayList<>();
@@ -51,6 +63,11 @@ public abstract class BaseTest<T extends BaseObject> {
 		classList.addAll(Arrays.asList(entityClasses));
 		this.entityClassList = classList.toArray(new Class[0]);
 		EntityFactory.initialize(configure);
+		String string = BeanUtils.objectToString(configure, StringType.XML);
+		MagiConfigure parsedConfig =
+				BeanUtils.stringToObject(string, StringType.XML,
+						MagiConfigure.class, "https://nervousync.org/schemas/magi");
+		System.out.println(BeanUtils.objectToString(parsedConfig, StringType.JSON));
 	}
 
 	private TransactionalConfig txConfig(final String methodName) {
@@ -146,10 +163,11 @@ public abstract class BaseTest<T extends BaseObject> {
 	@Order(40)
 	public void queryRecord() throws Exception {
 		EntityFactory entityFactory = EntityFactory.getInstance();
-		PartialCollection<T> partialCollection = entityFactory.query(this.mainClass, this.queryInfo());
+		PartialCollection partialCollection = entityFactory.query(this.queryInfo());
 		this.logger.info("Test_Query_Total_Count", partialCollection.getTotalCount());
 		int index = 0;
-		for (T mainObject : partialCollection.asList()) {
+		for (Map<String, Object> dataMap : partialCollection.asList()) {
+			T mainObject = entityFactory.dataMapToObject(this.mainClass, dataMap);
 			this.verifyQueryRecord(index, mainObject);
 			index++;
 		}

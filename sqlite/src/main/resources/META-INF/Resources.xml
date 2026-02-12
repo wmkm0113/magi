@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+    <entry key="SQLite_Dialect_Title">SQLite</entry>
+    <entry key="SQLite_Dialect_Description">SQLite is a C-language library that implements a small, fast, self-contained, high-reliability, full-featured, SQL database engine.</entry>
+</properties>

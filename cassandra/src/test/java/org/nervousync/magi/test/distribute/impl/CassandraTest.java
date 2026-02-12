@@ -19,21 +19,33 @@ package org.nervousync.magi.test.distribute.impl;
 
 import org.junit.jupiter.api.AfterEach;
 import org.nervousync.brain.configs.server.ServerInfo;
-import org.nervousync.commons.Globals;
+import org.nervousync.brain.query.QueryInfo;
+import org.nervousync.magi.query.builder.EntityQueryBuilder;
 import org.nervousync.magi.test.distribute.DistributeTest;
+import org.nervousync.magi.test.distribute.entity.TestDistribute;
 
 import java.util.List;
 
 public final class CassandraTest extends DistributeTest {
 
 	public CassandraTest() throws Exception {
-		super("Cassandra", Globals.DEFAULT_VALUE_STRING, serverList(),
-				Boolean.FALSE, "nervousync", "ns0528AO@!");
+		super("Cassandra", "nervousync", serverList(),
+				Boolean.FALSE, "nervousync", "ns0528AO");
 	}
 
 	@AfterEach
 	public void delay() throws InterruptedException {
 		Thread.sleep(2000L);
+	}
+
+	@Override
+	protected QueryInfo queryInfo() throws Exception {
+		return EntityQueryBuilder.newBuilder(TestDistribute.class)
+				.where()
+				.equalTo(TestDistribute.class, "msgTitle").matchValue("Update title").confirm()
+				.confirm()
+				.pager(2, 5)
+				.build();
 	}
 
 	private static List<ServerInfo> serverList() {

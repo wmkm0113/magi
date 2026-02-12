@@ -1,7 +1,8 @@
 package org.nervousync.magi.beans.defines.reference;
 
 import jakarta.xml.bind.annotation.*;
-import org.nervousync.beans.core.BeanObject;
+
+import java.io.Serializable;
 
 /**
  * <h2 class="en-US">Reference join configure information</h2>
@@ -13,7 +14,7 @@ import org.nervousync.beans.core.BeanObject;
 @XmlType(name = "join_define")
 @XmlRootElement(name = "join_define")
 @XmlAccessorType(XmlAccessType.NONE)
-public final class JoinDefine extends BeanObject {
+public final class JoinDefine implements Serializable {
     /**
      * <span class="en-US">Serial version UID</span>
      * <span class="zh-CN">序列化UID</span>
@@ -40,7 +41,7 @@ public final class JoinDefine extends BeanObject {
     }
 
     /**
-     * <h3 class="en-US">Getter method for the field name in main table</h3>
+     * <h3 class="en-US">Getter method for the field name in the main table</h3>
      * <h3 class="zh-CN">主表中的属性名称的Getter方法</h3>
      *
      * @return <span class="en-US">The field name in main table</span>
@@ -51,7 +52,7 @@ public final class JoinDefine extends BeanObject {
     }
 
     /**
-     * <h3 class="en-US">Setter method for the field name in main table</h3>
+     * <h3 class="en-US">Setter method for the field name in the main table</h3>
      * <h3 class="zh-CN">主表中的属性名称的Setter方法</h3>
      *
      * @param currentField <span class="en-US">The field name in main table</span>

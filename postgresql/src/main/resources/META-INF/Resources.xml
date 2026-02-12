@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+    <entry key="PgSQL_Dialect_Title">PostgreSQL</entry>
+    <entry key="PgSQL_Dialect_Description">PostgreSQL: The World's Most Advanced Open Source Relational Database</entry>
+</properties>

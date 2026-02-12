@@ -1,7 +1,8 @@
 # 三聖賢數據中心平台
 
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.nervousync/magi-jdk11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.nervousync/magi-jdk11/)
-[![License](https://img.shields.io/github/license/wmkm0113/magi-jdk11.svg)](https://github.com/wmkm0113/magi-jdk11/blob/master/LICENSE)
+[![Maven Central](https://img.shields.io/maven-central/v/org.nervousync/magi-jdk11?color=green&label=Release)](https://mvnrepository.com/artifact/org.nervousync/magi-jdk11)
+![Maven Snapshot](https://img.shields.io/maven-metadata/v?label=Snapshot&metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Forg%2Fnervousync%2Fmagi-jdk11%2Fmaven-metadata.xml)
+[![License](https://img.shields.io/github/license/wmkm0113/magi-jdk11)](https://github.com/wmkm0113/magi-jdk11/blob/mainline/LICENSE)
 ![Language](https://img.shields.io/badge/language-Java-green)
 [![Twitter:wmkm0113](https://img.shields.io/twitter/follow/wmkm0113?label=Follow)](https://twitter.com/wmkm0113)
 
@@ -19,19 +20,19 @@
   + [註冊數據表實體類](#3註冊數據表實體類)
   + [執行增刪改查操作](#4執行增刪改查操作)
 * [敏感數據的處理](#敏感性資料的處理)
-* [自定義查詢優化器](#自定義查詢優化器)
 * [使用代碼進行數據源的配置](#使用代碼進行數據源的配置)
 * [數據導入導出](#數據導入導出)
   + [資料表實體類的修改](#資料表實體類的修改)
   + [導入導出工具的初始化和使用](#導入匯出工具的初始化和使用)
 * [貢獻與反饋](#貢獻與反饋)
-* [贊助與鳴謝](#贊助與鳴謝)
+* [捐款](#捐款)
 
-## JDK版本：
-編譯：OpenJDK 11   
-運行：OpenJDK 11+ 或相容版本
+## JDK版本
+**編譯：** OpenJDK 11   
+**運行：** OpenJDK 11+ 或相容版本   
+**Jakarta EE平台：** 9
 
-## 生命週期：
+## 生命週期
 **功能凍結：** 2026年12月31日   
 **安全更新：** 2029年12月31日
 
@@ -46,11 +47,51 @@
 </dependency>
 ```
 僅使用目標數據庫：
-僅支持JDBC數據庫（不包含Apache Derby）
+僅支持MariaDB數據庫
 ```
 <dependency>
     <groupId>org.nervousync</groupId>
-	<artifactId>magi-jdbc-jdk11</artifactId>
+	<artifactId>magi-mariadb-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+僅支持MySQL數據庫
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-mysql-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+僅支持Oracle數據庫
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-oracle-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+僅支持Postgres數據庫
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-pgsql-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+僅支持SQLite數據庫
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-sqlite-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+僅支持SQL Server數據庫
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-mssql-jdk11</artifactId>
     <version>${version}</version>
 </dependency>
 ```
@@ -85,10 +126,35 @@ Manual: compileOnly group: 'org.nervousync', name: 'magi-nodeps-jdk11', version:
 Short: compileOnly 'org.nervousync:magi-nodeps-jdk11:${version}'
 ```
 僅使用目標數據庫：
-僅支持JDBC數據庫（不包含Apache Derby）
+僅支持MariaDB數據庫
 ```
-Manual: compileOnly group: 'org.nervousync', name: 'magi-jdbc-jdk11', version: '${version}'
-Short: compileOnly 'org.nervousync:magi-jdbc-jdk11:${version}'
+Manual: compileOnly group: 'org.nervousync', name: 'magi-mariadb-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-mariadb-jdk11:${version}'
+```
+僅支持MySQL數據庫
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-mysql-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-mysql-jdk11:${version}'
+```
+僅支持Oracle數據庫
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-oracle-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-oracle-jdk11:${version}'
+```
+僅支持Postgres數據庫
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-pgsql-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-pgsql-jdk11:${version}'
+```
+僅支持SQLite數據庫
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-sqlite-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-sqlite-jdk11:${version}'
+```
+僅支持SQL Server數據庫
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-nssql-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-mssql-jdk11:${version}'
 ```
 僅支持Apache Derby
 ```
@@ -110,9 +176,29 @@ Short: compileOnly 'org.nervousync:magi-mongodb-jdk11:${version}'
 libraryDependencies += "org.nervousync" % "magi-nodeps-jdk11" % "${version}" % "provided"
 ```
 僅使用目標數據庫：
-僅支持JDBC數據庫（不包含Apache Derby）
+僅支持MariaDB數據庫
 ```
-libraryDependencies += "org.nervousync" % "magi-jdbc-jdk11" % "${version}" % "provided"
+libraryDependencies += "org.nervousync" % "magi-mariadb-jdk11" % "${version}" % "provided"
+```
+僅支持MySQL數據庫
+```
+libraryDependencies += "org.nervousync" % "magi-mysql-jdk11" % "${version}" % "provided"
+```
+僅支持Oracle數據庫
+```
+libraryDependencies += "org.nervousync" % "magi-oracle-jdk11" % "${version}" % "provided"
+```
+僅支持Postgres數據庫
+```
+libraryDependencies += "org.nervousync" % "magi-pgsql-jdk11" % "${version}" % "provided"
+```
+僅支持SQLite數據庫
+```
+libraryDependencies += "org.nervousync" % "magi-sqlite-jdk11" % "${version}" % "provided"
+```
+僅支持SQL Server數據庫
+```
+libraryDependencies += "org.nervousync" % "magi-mssql-jdk11" % "${version}" % "provided"
 ```
 僅支持Apache Derby
 ```
@@ -131,9 +217,29 @@ libraryDependencies += "org.nervousync" % "magi-mongodb-jdk11" % "${version}" % 
 <dependency org="org.nervousync" name="magi-nodeps-jdk11" rev="${version}"/>
 ```
 僅使用目標數據庫：
-僅支持JDBC數據庫（不包含Apache Derby）
+僅支持MariaDB數據庫
 ```
-<dependency org="org.nervousync" name="magi-jdbc-jdk11" rev="${version}"/>
+<dependency org="org.nervousync" name="magi-mariadb-jdk11" rev="${version}"/>
+```
+僅支持MySQL數據庫
+```
+<dependency org="org.nervousync" name="magi-mysql-jdk11" rev="${version}"/>
+```
+僅支持Oracle數據庫
+```
+<dependency org="org.nervousync" name="magi-oracle-jdk11" rev="${version}"/>
+```
+僅支持Postgres數據庫
+```
+<dependency org="org.nervousync" name="magi-pgsql-jdk11" rev="${version}"/>
+```
+僅支持SQLite數據庫
+```
+<dependency org="org.nervousync" name="magi-sqlite-jdk11" rev="${version}"/>
+```
+僅支持SQL Server數據庫
+```
+<dependency org="org.nervousync" name="magi-mssql-jdk11" rev="${version}"/>
 ```
 僅支持Apache Derby
 ```
@@ -329,23 +435,6 @@ libraryDependencies += "org.nervousync" % "magi-mongodb-jdk11" % "${version}" % 
 |  PHONE_NUMBER   |     電話號碼     |  139（隱藏資訊）1  |
 |      Luhn       |    銀行卡號碼     | 62（隱藏資訊）8888 |
 
-## 自定義查詢優化器
-**1、添加查詢優化器實現類：***
-新增查詢優化器實現類，並實現 org.nervousync.magi.query.optimizer.QueryOptimizer 接口，
-在查詢優化器實現類上添加 org.nervousync.annotations.provider.Provider 註解，定義好註解的 name 屬性。
-並將實現類寫入/META-INF/services/org.nervousync.magi.query.optimizer.QueryOptimizer文件，
-系統通過Java的SPI進行查詢優化器實現類的加載。
-
-**2、使用自定義的查詢優化器實現類：**
-在初始化實體類工廠時，顯示指定查詢優化器，通過調用 org.nervousync.magi.entity.EntityFactory 的 initialize 靜態方法來初始化實體類工廠。
-
-參數信息：
-
-| 參數名           | 數據類型                                        | 用途                          |
-|---------------|--------------------------------- ------------|-----------------------------|
-| configure     | org.nervousync.brain.configs.BrainConfigure | 數據源配置信息實例對象                 |
-| optimizerName | 字符串                                         | 查詢優化器 Provider 註解的 name 屬性值 |
-
 ## 使用代碼進行數據源的配置
 
 程序開發人員可以通過使用 org.nervousync.brain.configs.builder.BrainConfigureBuilder 類進行數據源的配置，
@@ -396,9 +485,10 @@ libraryDependencies += "org.nervousync" % "magi-mongodb-jdk11" % "${version}" % 
 如果您需要添加的是定制化的特殊需求，我將收取一定的定制開發費用，具體費用金額根據定制化的特殊需求的工作量進行評估。   
 定制化特殊需求請直接發送電子郵件到[wmkm0113\@gmail.com](mailto:wmkm0113@gmail.com?subject=payment_features)，同時請儘量在郵件中寫明您可以負擔的開發費用預算金額。
 
-## 贊助與鳴謝
-<span id="JetBrains">
-    <img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg" width="100px" alt="JetBrains Logo (Main) logo.">
-    <span>非常感謝 <a href="https://www.jetbrains.com/">JetBrains</a> 通過許可證贊助我們的開源項目。</span>
-</span>
+## 捐款
+為了支持此項目，您可以向以下地址捐款：
 
+* 比特幣地址: bc1ql7elx2j625x7f9tvax90v6zgwp55wy7uawtdtz
+* 以太坊地址: 0xd88a49056E6ECE59e89c7e5724729A0FB0872986
+* Solana 地址: GSwycoeVZHRW72TcvW38qLfqsWhFbwDbxamaEuwEwQjW
+* BNB 地址: 0xd88a49056E6ECE59e89c7e5724729A0FB0872986

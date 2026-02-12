@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+    <entry key="0x00DB000A0001">Parse_Query_Failed</entry>
+    <entry key="0x00DB000A0002">Parameter_Type_Not_Support</entry>
+</properties>

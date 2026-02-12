@@ -25,61 +25,69 @@ import net.bytebuddy.asm.Advice;
 import net.bytebuddy.dynamic.DynamicType;
 import net.bytebuddy.dynamic.loading.ClassReloadingStrategy;
 import net.bytebuddy.matcher.ElementMatchers;
+import org.intellij.lang.annotations.MagicConstant;
 import org.nervousync.annotations.beans.DataTransfer;
 import org.nervousync.annotations.provider.Provider;
 import org.nervousync.beans.config.TransferConfig;
-import org.nervousync.beans.core.BeanObject;
 import org.nervousync.brain.commons.BrainCommons;
-import org.nervousync.brain.commons.DataUtils;
-import org.nervousync.brain.configs.BrainConfigure;
 import org.nervousync.brain.configs.transactional.TransactionalConfig;
-import org.nervousync.brain.data.transfer.TransferColumn;
 import org.nervousync.brain.defines.*;
 import org.nervousync.brain.enumerations.ddl.DropOption;
-import org.nervousync.brain.enumerations.ddl.GenerationType;
 import org.nervousync.brain.enumerations.dialect.DialectType;
-import org.nervousync.brain.enumerations.query.ConditionCode;
 import org.nervousync.brain.exceptions.sql.MultilingualSQLException;
+import org.nervousync.brain.query.PartialCollection;
 import org.nervousync.brain.query.QueryInfo;
 import org.nervousync.brain.query.condition.Condition;
 import org.nervousync.brain.query.condition.impl.ColumnCondition;
 import org.nervousync.brain.query.condition.impl.GroupCondition;
-import org.nervousync.brain.query.core.AbstractItem;
-import org.nervousync.brain.query.core.SortedItem;
-import org.nervousync.brain.query.data.QueryData;
-import org.nervousync.brain.query.filter.GroupBy;
-import org.nervousync.brain.query.item.ColumnItem;
-import org.nervousync.brain.query.item.FunctionItem;
-import org.nervousync.brain.query.item.QueryItem;
+import org.nervousync.brain.query.core.AbstractQuery;
+import org.nervousync.brain.query.core.QueryFrom;
+import org.nervousync.brain.query.core.QueryItem;
+import org.nervousync.brain.query.from.FromSubQuery;
+import org.nervousync.brain.query.from.FromTable;
+import org.nervousync.brain.query.item.*;
+import org.nervousync.brain.query.join.QueryJoin;
+import org.nervousync.brain.query.join.SubQueryJoin;
+import org.nervousync.brain.query.join.TableQueryJoin;
 import org.nervousync.brain.query.param.AbstractParameter;
-import org.nervousync.brain.query.param.impl.ColumnParameter;
-import org.nervousync.brain.query.param.impl.ConstantParameter;
-import org.nervousync.brain.query.param.impl.FunctionParameter;
-import org.nervousync.brain.query.param.impl.QueryParameter;
+import org.nervousync.brain.query.param.impl.*;
+import org.nervousync.brain.query.subqueries.ScalarSubQuery;
+import org.nervousync.brain.query.subqueries.TableSubQuery;
 import org.nervousync.brain.sharding.Calculator;
 import org.nervousync.brain.source.BrainDataSource;
 import org.nervousync.cache.CacheUtils;
 import org.nervousync.cache.api.CacheClient;
-import org.nervousync.cache.commons.CacheGlobals;
 import org.nervousync.commons.Globals;
-import org.nervousync.enumerations.core.ConnectionCode;
+import org.nervousync.commons.id.CUID;
+import org.nervousync.commons.id.ULID;
+import org.nervousync.enumerations.beans.StringType;
+import org.nervousync.enumerations.security.EncodeType;
 import org.nervousync.magi.annotations.data.ExcelColumn;
+import org.nervousync.magi.annotations.data.HistoriesNames;
 import org.nervousync.magi.annotations.data.Sensitive;
+import org.nervousync.magi.annotations.sharding.Sharding;
 import org.nervousync.magi.annotations.table.GeneratedData;
 import org.nervousync.magi.annotations.table.Options;
 import org.nervousync.magi.annotations.table.Schema;
 import org.nervousync.magi.beans.defines.reference.JoinDefine;
 import org.nervousync.magi.beans.defines.reference.ReferenceDefine;
 import org.nervousync.magi.beans.defines.sensitive.SensitiveDefine;
+import org.nervousync.magi.commons.MagiGlobals;
+import org.nervousync.magi.config.MagiConfigure;
+import org.nervousync.magi.data.DataUtils;
+import org.nervousync.magi.data.tracker.SensitiveTracker;
+import org.nervousync.magi.data.transfer.TransferColumn;
+import org.nervousync.magi.entity.log.RecordLogger;
 import org.nervousync.magi.enumerations.reference.ReferenceType;
+import org.nervousync.magi.exceptions.core.DatabaseException;
 import org.nervousync.magi.interceptors.LazyLoadInterceptor;
-import org.nervousync.magi.query.PartialCollection;
-import org.nervousync.magi.query.optimizer.OptimizedResult;
-import org.nervousync.magi.query.optimizer.QueryOptimizer;
-import org.nervousync.magi.query.optimizer.step.AbstractStep;
-import org.nervousync.magi.query.optimizer.step.MergeStep;
-import org.nervousync.magi.query.optimizer.step.QueryStep;
-import org.nervousync.utils.*;
+import org.nervousync.magi.query.builder.EntityQueryBuilder;
+import org.nervousync.magi.query.builder.EntityConditionsBuilder;
+import org.nervousync.magi.query.builder.EntityItemsBuilder;
+import org.nervousync.utils.core.*;
+import org.nervousync.utils.id.IDUtils;
+import org.nervousync.utils.logger.LoggerUtils;
+import org.nervousync.utils.security.SecurityUtils;
 
 import javax.sql.rowset.serial.SerialClob;
 import java.io.Serializable;
@@ -88,8 +96,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.time.*;
 import java.util.*;
-import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * <h2 class="en-US">Entity class factory</h2>
@@ -98,6 +108,7 @@ import java.util.function.Predicate;
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
  * @version $Revision: 1.0.0 $ $Date: Mar 30, 2016 17:05:12 $
  */
+@SuppressWarnings("unused")
 public final class EntityFactory {
 
 	/**
@@ -107,26 +118,27 @@ public final class EntityFactory {
 	private static final LoggerUtils.Logger LOGGER = LoggerUtils.getLogger(EntityFactory.class);
 
 	/**
+	 * <span class="en-US">Registered implement class of sensitive tracker information mapping table</span>
+	 * <span class="zh-CN">注册的敏感信息追踪器实现类映射表</span>
+	 */
+	private static final Hashtable<String, Class<?>> REGISTERED_TRACKER_IMPLEMENTS = new Hashtable<>();
+
+	/**
 	 * <span class="en-US">Entity class factory singleton instance object</span>
 	 * <span class="zh-CN">实体类工厂单例对象</span>
 	 */
 	private static EntityFactory INSTANCE = null;
-	/**
-	 * <span class="en-US">Registered implementation class of query optimizer</span>
-	 * <span class="zh-CN">注册的查询优化器实现类</span>
-	 */
-	private static final Hashtable<String, Class<?>> REGISTERED_OPTIMIZERS = new Hashtable<>();
 
+	/**
+	 * <span class="en-US">Sensitive data tracker</span>
+	 * <span class="zh-CN">敏感信息追踪器</span>
+	 */
+	private final SensitiveTracker sensitiveTracker;
 	/**
 	 * <span class="en-US">Data source instance object</span>
 	 * <span class="zh-CN">数据源实例对象</span>
 	 */
 	private final BrainDataSource dataSource;
-	/**
-	 * <span class="en-US">Used identification code of query optimizer implementation class</span>
-	 * <span class="zh-CN">使用的查询优化器实现类识别代码</span>
-	 */
-	private String optimizerName;
 	/**
 	 * <span class="en-US">The constant mapping between Java type and JDBC type code</span>
 	 * <span class="zh-CN">常量映射表，用于映射Java类型和JDBC类型代码</span>
@@ -165,82 +177,101 @@ public final class EntityFactory {
 	private final ThreadLocal<Boolean> readOnly = new ThreadLocal<>();
 
 	static {
-		ServiceLoader.load(QueryOptimizer.class)
-				.forEach(queryOptimizer ->
-						Optional.ofNullable(queryOptimizer.getClass().getAnnotation(Provider.class))
+		ServiceLoader.load(SensitiveTracker.class)
+				.forEach(sensitiveTracker ->
+						Optional.ofNullable(sensitiveTracker.getClass().getAnnotation(Provider.class))
 								.ifPresent(provider ->
-										REGISTERED_OPTIMIZERS.put(provider.name(), queryOptimizer.getClass())));
+										REGISTERED_TRACKER_IMPLEMENTS.put(provider.name(), sensitiveTracker.getClass())));
 	}
 
 	/**
 	 * <h3 class="en-US">Private constructor method for entity class factory</h3>
 	 * <h3 class="zh-CN">实体类工厂的私有构造方法</h3>
+	 *
+	 * @param magiConfigure <span class="en-US">Used identification code of query optimizer implementation class</span>
+	 *                      <span class="zh-CN">使用的查询优化器实现类识别代码</span>
 	 */
-	private EntityFactory(final String optimizerName) {
+	private EntityFactory(final MagiConfigure magiConfigure) throws Exception {
 		ByteBuddyAgent.install();
 		this.registerTypes();
 		this.dataSource = BrainDataSource.getInstance();
-		this.optimizerName = optimizerName;
+		this.dataSource.initialize(magiConfigure.getBrainConfigure());
+		Optional.ofNullable(magiConfigure.getStorageConfig()).ifPresent(DataUtils::initialize);
+		Optional.ofNullable(magiConfigure.getCacheConfig())
+				.map(cacheConfig -> CacheUtils.register(MagiGlobals.CACHE_NAME, cacheConfig))
+				.ifPresent(registered -> LOGGER.info("", registered));
+		this.scanPackages(magiConfigure.getScanPackages());
+		if (StringUtils.isEmpty(magiConfigure.getSensitiveTracker())) {
+			this.sensitiveTracker = null;
+		} else {
+			this.sensitiveTracker =
+					Optional.ofNullable(ClassUtils.forName(magiConfigure.getSensitiveTracker()))
+							.filter(trackerClass -> ClassUtils.isAssignable(trackerClass, SensitiveTracker.class))
+							.map(trackerClass -> (SensitiveTracker) ObjectUtils.newInstance(trackerClass))
+							.orElse(null);
+		}
 	}
 
 	/**
-	 * <h3 class="en-US">Static method for initialize entity factory</h3>
-	 * <h3 class="zh-CN">静态方法用于初始化实体类工厂</h3>
+	 * <h3 class="en-US">Get registered implement class of sensitive tracker information mapping table</h3>
+	 * <h3 class="zh-CN">获取已注册的敏感信息追踪器实现类映射表</h3>
 	 *
-	 * @param configure <span class="en-US">Data source configure information instance object</span>
-	 *                  <span class="zh-CN">数据源配置信息实例对象</span>
+	 * @return <span class="en-US">Registered implement class of sensitive tracker information mapping table</span>
+	 * <span class="zh-CN">注册的敏感信息追踪器实现类映射表</span>
 	 */
-	public static void initialize(final BrainConfigure configure) {
-		initialize(configure, Globals.DEFAULT_VALUE_STRING);
+	public static Hashtable<String, Class<?>> registeredTrackers() {
+		return REGISTERED_TRACKER_IMPLEMENTS;
 	}
 
 	/**
-	 * <h3 class="en-US">Static method for initialize entity factory</h3>
+	 * <h3 class="en-US">Static method for initializing entity factory</h3>
 	 * <h3 class="zh-CN">静态方法用于初始化实体类工厂</h3>
 	 *
-	 * @param configure     <span class="en-US">Data source configure information instance object</span>
-	 *                      <span class="zh-CN">数据源配置信息实例对象</span>
-	 * @param optimizerName <span class="en-US">Used identification code of query optimizer implementation class</span>
+	 * @param magiConfigure <span class="en-US">Used identification code of query optimizer implementation class</span>
 	 *                      <span class="zh-CN">使用的查询优化器实现类识别代码</span>
+	 * @throws Exception <span class="en-US">If an error occurs during operation</span>
+	 *                   <span class="zh-CN">如果操作过程中出错</span>
 	 */
-	public static void initialize(final BrainConfigure configure, final String optimizerName) {
-		BrainDataSource.getInstance().initialize(configure);
+	public static void initialize(final MagiConfigure magiConfigure) throws Exception {
 		if (INSTANCE == null) {
 			synchronized (EntityFactory.class) {
-				INSTANCE = new EntityFactory(optimizerName);
+				INSTANCE = new EntityFactory(magiConfigure);
 				//  Register execute destroy method when the system shutdown
-				Runtime.getRuntime().addShutdownHook(new Thread(EntityFactory::destroy));
+				SystemUtils.registerShutdownHook(new Thread(EntityFactory::destroy));
 			}
 		}
-		INSTANCE.optimizerName = optimizerName;
 	}
 
 	/**
-	 * <h3 class="en-US">Static getter method for entity class factory singleton instance object</h3>
+	 * <h3 class="en-US">Static getter method for the entity class factory singleton instance object</h3>
 	 * <h3 class="zh-CN">实体类工厂单例对象的静态Getter方法</h3>
 	 *
 	 * @return <span class="en-US">Entity class factory singleton instance object</span>
 	 * <span class="zh-CN">实体类工厂单例对象</span>
+	 * @throws DatabaseException <span class="en-US">If the entity class factory wasn't initialized</span>
+	 *                           <span class="zh-CN">如果实体类工厂未初始化</span>
 	 */
-	public static EntityFactory getInstance() {
+	public static EntityFactory getInstance() throws DatabaseException {
 		return getInstance(Boolean.FALSE);
 	}
 
 	/**
-	 * <h3 class="en-US">Static getter method for entity class factory singleton instance object</h3>
+	 * <h3 class="en-US">Static getter method for the entity class factory singleton instance object</h3>
 	 * <h3 class="zh-CN">实体类工厂单例对象的静态Getter方法</h3>
 	 *
 	 * @param readOnly <span class="en-US">Read-only flag</span>
 	 *                 <span class="zh-CN">只读模式标记</span>
 	 * @return <span class="en-US">Entity class factory singleton instance object</span>
 	 * <span class="zh-CN">实体类工厂单例对象</span>
+	 * @throws DatabaseException <span class="en-US">If the entity class factory wasn't initialized</span>
+	 *                           <span class="zh-CN">如果实体类工厂未初始化</span>
 	 */
-	public static EntityFactory getInstance(final boolean readOnly) {
+	public static EntityFactory getInstance(final boolean readOnly) throws DatabaseException {
 		return getInstance(readOnly, Boolean.FALSE);
 	}
 
 	/**
-	 * <h3 class="en-US">Static getter method for entity class factory singleton instance object</h3>
+	 * <h3 class="en-US">Static getter method for the entity class factory singleton instance object</h3>
 	 * <h3 class="zh-CN">实体类工厂单例对象的静态Getter方法</h3>
 	 *
 	 * @param readOnly    <span class="en-US">Read-only flag</span>
@@ -249,16 +280,26 @@ public final class EntityFactory {
 	 *                    <span class="zh-CN">数据还原模式标记</span>
 	 * @return <span class="en-US">Entity class factory singleton instance object</span>
 	 * <span class="zh-CN">实体类工厂单例对象</span>
+	 * @throws DatabaseException <span class="en-US">If the entity class factory wasn't initialized</span>
+	 *                           <span class="zh-CN">如果实体类工厂未初始化</span>
 	 */
-	public static EntityFactory getInstance(final boolean readOnly, final boolean restoreMode) {
+	public static EntityFactory getInstance(final boolean readOnly, final boolean restoreMode) throws DatabaseException {
 		if (INSTANCE != null) {
 			INSTANCE.threadConfig(readOnly, restoreMode);
+			if (readOnly) {
+				try {
+					INSTANCE.beginTransactional(null);
+				} catch (Exception e) {
+					LOGGER.error("Transactional_Init_Error", e);
+				}
+			}
+			return INSTANCE;
 		}
-		return INSTANCE;
+		throw new DatabaseException(0x00DB00010007L);
 	}
 
 	/**
-	 * <h3 class="en-US">Destroy current entity factory</h3>
+	 * <h3 class="en-US">Destroy the current entity factory</h3>
 	 * <h3 class="zh-CN">销毁当前实体类工厂</h3>
 	 */
 	public static void destroy() {
@@ -267,10 +308,26 @@ public final class EntityFactory {
 				INSTANCE.registeredTables.clear();
 				INSTANCE.identifiedCodeMapping.clear();
 				INSTANCE.redefinedClasses.clear();
+				DataUtils.destroy();
 				BrainDataSource.destroy();
+				CacheUtils.deregister(MagiGlobals.CACHE_NAME);
 				INSTANCE = null;
 			}
 		}
+	}
+
+	/**
+	 * <h3 class="en-US">Get the JDBC type code by the given Java type class</h3>
+	 * <h3 class="zh-CN">根据给定的Java类型获取JDBC类型代码</h3>
+	 *
+	 * @param typeClass <span class="en-US">Java type class</span>
+	 *                  <span class="zh-CN">Java类型</span>
+	 * @return <span class="en-US">JDBC type code</span>
+	 * <span class="zh-CN">JDBC类型代码</span>
+	 */
+	@MagicConstant(valuesFromClass = Types.class)
+	public int jdbcType(final Class<?> typeClass) {
+		return this.dataConvertMapping.getOrDefault(typeClass, Types.OTHER);
 	}
 
 	/**
@@ -293,8 +350,8 @@ public final class EntityFactory {
 	 * <h3 class="en-US">Scan and register a data table definition class that matches the given package name list</h3>
 	 * <h3 class="zh-CN">扫描并注册符合给定包名列表的数据表定义类</h3>
 	 *
-	 * @param scanPackages <span class="en-US">Package name list, which can be a regular expression list</span>
-	 *                     <span class="zh-CN">包名列表，可以是正则表达式列表</span>
+	 * @param scanPackages <span class="en-US">Package name string array, which can be a regular expression list</span>
+	 *                     <span class="zh-CN">包名数组，可以是正则表达式列表</span>
 	 * @throws Exception <span class="en-US">If an error occurs during operation</span>
 	 *                   <span class="zh-CN">如果操作过程中出错</span>
 	 */
@@ -336,36 +393,126 @@ public final class EntityFactory {
 	}
 
 	/**
-	 * <h3 class="en-US">Checks whether the given identification code is a registry identification code</h3>
-	 * <h3 class="zh-CN">检查给定的识别代码是否为注册表识别代码</h3>
+	 * <h3 class="en-US">Checks whether the given entity class is a registry data table</h3>
+	 * <h3 class="zh-CN">检查给定的实体类是否为注册数据表</h3>
 	 *
-	 * @param identifyCode <span class="en-US">Identified code</span>
-	 *                     <span class="zh-CN">识别代码</span>
+	 * @param entityClass <span class="en-US">Entity class</span>
+	 *                    <span class="zh-CN">实体类</span>
 	 * @return <span class="en-US">Check result</span>
 	 * <span class="zh-CN">检查结果</span>
 	 */
-	public boolean registeredTable(final String identifyCode) {
-		return this.registeredTables.containsKey(this.identifiedCodeMapping.getOrDefault(identifyCode, identifyCode));
+	public boolean registeredTable(@Nonnull final Class<?> entityClass) {
+		return Optional.ofNullable(ClassUtils.originalClassName(entityClass))
+				.filter(StringUtils::notBlank)
+				.map(BrainCommons::identifyCode)
+				.map(this.identifiedCodeMapping::get)
+				.map(this.registeredTables::containsKey)
+				.orElse(Boolean.FALSE);
+	}
+
+	/**
+	 * <h3 class="en-US">Checks whether the given identification code is a registry identification code</h3>
+	 * <h3 class="zh-CN">检查给定的识别代码是否为注册表识别代码</h3>
+	 *
+	 * @param tableName <span class="en-US">Data table name</span>
+	 *                  <span class="zh-CN">数据表名</span>
+	 * @return <span class="en-US">Check result</span>
+	 * <span class="zh-CN">检查结果</span>
+	 */
+	public boolean registeredTable(final String tableName) {
+		return Optional.ofNullable(tableName)
+				.filter(StringUtils::notBlank)
+				.map(BrainCommons::identifyCode)
+				.map(this.identifiedCodeMapping::get)
+				.map(this.registeredTables::containsKey)
+				.orElse(Boolean.FALSE);
+	}
+
+	/**
+	 * <h3 class="en-US">Checks whether the data source of the given table name supports relational queries</h3>
+	 * <h3 class="zh-CN">检查给定的数据表名所在的数据源是否支持关联查询</h3>
+	 *
+	 * @param tableName <span class="en-US">Data table name</span>
+	 *                  <span class="zh-CN">数据表名</span>
+	 * @return <span class="en-US">Support join query</span>
+	 * <span class="zh-CN">支持关联查询</span>
+	 */
+	public boolean supportJoin(final String tableName) {
+		return Optional.ofNullable(tableName)
+				.filter(StringUtils::notBlank)
+				.map(BrainCommons::identifyCode)
+				.map(this.identifiedCodeMapping::get)
+				.map(this.registeredTables::get)
+				.map(TableConfig::getTableDefine)
+				.map(TableDefine::getSchemaName)
+				.map(this.dataSource::supportJoin)
+				.orElse(Boolean.FALSE);
+
 	}
 
 	/**
 	 * <h3 class="en-US">Read sensitive data</h3>
 	 * <h3 class="zh-CN">读取敏感信息</h3>
 	 *
-	 * @param object       <span class="en-US">Entity classes instance object</span>
-	 *                     <span class="zh-CN">实体类实例对象</span>
-	 * @param identifyName <span class="en-US">Field name</span>
-	 *                     <span class="zh-CN">属性名</span>
-	 * @return <span class="en-US">Field value</span>
-	 * <span class="zh-CN">属性值</span>
+	 * @param object   <span class="en-US">Entity classes instance object</span>
+	 *                 <span class="zh-CN">实体类实例对象</span>
+	 * @param userCode <span class="en-US">Identify code of the reader</span>
+	 *                 <span class="zh-CN">读取人的识别代码</span>
 	 */
-	public String sensitiveData(final BaseObject object, final String identifyName) {
-		if (object == null || StringUtils.isEmpty(identifyName)) {
-			return Globals.DEFAULT_VALUE_STRING;
+	public void sensitiveData(@Nonnull final BaseObject object, @Nonnull final String userCode) {
+		Optional.ofNullable(this.tableConfig(object.getClass()))
+				.ifPresent(tableConfig -> tableConfig.sensitiveData(object, userCode));
+	}
+
+	/**
+	 * <h3 class="en-US">Checks whether two tables are in the same database, according to the given query conditions</h3>
+	 * <h3 class="zh-CN">根据给定的查询条件检查两个数据表是否在同一数据库中</h3>
+	 *
+	 * @param queryInfo <span class="en-US">Query information instance object</span>
+	 *                  <span class="zh-CN">查询信息实例对象</span>
+	 * @return <span class="en-US">Check result</span>
+	 * <span class="zh-CN">检查结果</span>
+	 * @throws SQLException <span class="en-US">The data source or data table is not registered</span>
+	 *                      <span class="zh-CN">数据源或数据表未注册</span>
+	 */
+	public boolean sameCatalog(@Nonnull final QueryInfo queryInfo) throws SQLException {
+		List<String> identifyCodes = this.identifyCodes(queryInfo);
+		if (identifyCodes.isEmpty() || identifyCodes.size() == 1) {
+			return Boolean.TRUE;
 		}
-		return Optional.ofNullable(this.tableConfig(object.getClass()))
-				.map(tableConfig -> tableConfig.sensitiveData(object, identifyName))
-				.orElse(Globals.DEFAULT_VALUE_STRING);
+
+		if (identifyCodes.stream().anyMatch(identifyCode -> !this.registeredTable(identifyCode))) {
+			throw new MultilingualSQLException(0x00DB00010012L);
+		}
+
+		Set<String> schemaNames = new HashSet<>();
+		identifyCodes.forEach(identifyCode ->
+				Optional.ofNullable(this.tableConfig(identifyCode))
+						.map(TableConfig::getTableDefine)
+						.map(TableDefine::getSchemaName)
+						.map(schemaName ->
+								StringUtils.isEmpty(schemaName) ? this.dataSource.getDefaultSchema() : schemaName)
+						.ifPresent(schemaNames::add));
+		return schemaNames.size() == 1;
+	}
+
+	/**
+	 * <h3 class="en-US">Get the data column name based on the given entity class and identified code</h3>
+	 * <h3 class="zh-CN">根据给定的实体类和识别代码获取数据列名</h3>
+	 *
+	 * @param tableCode  <span class="en-US">Data table identify code</span>
+	 *                   <span class="zh-CN">数据表识别代码</span>
+	 * @param columnCode <span class="en-US">Identified code</span>
+	 *                   <span class="zh-CN">识别代码</span>
+	 * @return <span class="en-US">Data column name</span>
+	 * <span class="zh-CN">数据列名</span>
+	 * @throws SQLException <span class="en-US">If the data table configuration information is not found</span>
+	 *                      <span class="zh-CN">如果数据表配置信息未找到</span>
+	 */
+	public String columnName(final String tableCode, final String columnCode) throws SQLException {
+		return Optional.ofNullable(this.tableConfig(tableCode))
+				.map(tableConfig -> tableConfig.columnName(columnCode))
+				.orElseThrow(() -> new MultilingualSQLException(0x00DB00010005L, tableCode));
 	}
 
 	/**
@@ -400,6 +547,44 @@ public final class EntityFactory {
 		return Optional.ofNullable(this.tableConfig(entityClass))
 				.map(tableConfig -> tableConfig.columnName(identifyCode))
 				.orElseThrow(() -> new MultilingualSQLException(0x00DB00010005L, entityClass.getName()));
+	}
+
+	/**
+	 * <h3 class="en-US">Get the JDBC type code of the data column in the registration data table</h3>
+	 * <h3 class="zh-CN">获取注册数据表中数据列的JDBC类型代码</h3>
+	 *
+	 * @param tableCode    <span class="en-US">Data table identify code</span>
+	 *                     <span class="zh-CN">数据表识别代码</span>
+	 * @param identifyCode <span class="en-US">Data column identify code</span>
+	 *                     <span class="zh-CN">数据列识别代码</span>
+	 * @return <span class="en-US">JDBC type code</span>
+	 * <span class="zh-CN">JDBC类型代码</span>
+	 * @throws SQLException <span class="en-US">The data table is not registered or data column not exists</span>
+	 *                      <span class="zh-CN">数据表未注册或数据列不存在</span>
+	 */
+	public int jdbcType(final String tableCode, @Nonnull final String identifyCode) throws SQLException {
+		TableConfig tableConfig = this.tableConfig(tableCode);
+		if (tableConfig == null) {
+			throw new MultilingualSQLException(0x00DB00010005L, tableCode);
+		}
+		return tableConfig.jdbcType(identifyCode);
+	}
+
+	/**
+	 * <h3 class="en-US">Get the JDBC type code of the data column in the registration data table</h3>
+	 * <h3 class="zh-CN">获取注册数据表中数据列的JDBC类型代码</h3>
+	 *
+	 * @param entityClass  <span class="en-US">Entity class</span>
+	 *                     <span class="zh-CN">实体类</span>
+	 * @param identifyCode <span class="en-US">Data column identify code</span>
+	 *                     <span class="zh-CN">数据列识别代码</span>
+	 * @return <span class="en-US">JDBC type code</span>
+	 * <span class="zh-CN">JDBC类型代码</span>
+	 * @throws SQLException <span class="en-US">The data table is not registered or data column not exists</span>
+	 *                      <span class="zh-CN">数据表未注册或数据列不存在</span>
+	 */
+	public int jdbcType(final Class<?> entityClass, @Nonnull final String identifyCode) throws SQLException {
+		return this.jdbcType(this.tableName(entityClass), identifyCode);
 	}
 
 	/**
@@ -440,7 +625,7 @@ public final class EntityFactory {
 	}
 
 	/**
-	 * <h3 class="en-US">Drop data table</h3>
+	 * <h3 class="en-US">Drop the data tables</h3>
 	 * <h3 class="zh-CN">删除数据表</h3>
 	 *
 	 * @param entityClasses <span class="en-US">Entity classes array</span>
@@ -506,110 +691,22 @@ public final class EntityFactory {
 	}
 
 	/**
-	 * <h3 class="en-US">Execute query plan and return query results</h3>
-	 * <h3 class="zh-CN">执行查询计划并返回查询结果</h3>
-	 *
-	 * @param targetClass <span class="en-US">Query result class</span>
-	 *                    <span class="zh-CN">查询结果类</span>
-	 * @param queryInfo   <span class="en-US">Query information instance object</span>
-	 *                    <span class="zh-CN">查询信息实例对象</span>
-	 * @param <T>         <span class="en-US">Query result generic class</span>
-	 *                    <span class="zh-CN">查询结果泛型类</span>
-	 * @return <span class="en-US">Query results</span>
-	 * <span class="zh-CN">查询结果</span>
-	 * @throws Exception <span class="en-US">An error occurred during execution</span>
-	 *                   <span class="zh-CN">执行过程中出错</span>
-	 */
-	public <T> PartialCollection<T> query(final Class<T> targetClass, final QueryInfo queryInfo) throws Exception {
-		String cacheKey = queryInfo.isCacheables() ? this.cacheKey(queryInfo) : Globals.DEFAULT_VALUE_STRING;
-		if (queryInfo.isCacheables()) {
-			String cacheData =
-					this.cacheClient().map(cacheClient -> cacheClient.get(cacheKey)).orElse(Globals.DEFAULT_VALUE_STRING);
-			if (StringUtils.notBlank(cacheData)) {
-				PartialCollection<T> partialCollection = PartialCollection.parse(cacheData, targetClass);
-				if (partialCollection != null) {
-					return partialCollection;
-				}
-			}
-		}
-		OptimizedResult optimizedResult = this.newOptimizer().optimize(queryInfo);
-		Map<Long, List<Map<String, Object>>> subQueriesResult = new HashMap<>();
-
-		if (optimizedResult.finalStep()) {
-			return new PartialCollection<>(List.of(ObjectUtils.newArray(targetClass)), 0L);
-		}
-		AbstractStep abstractStep = optimizedResult.nextStep();
-		do {
-			switch (abstractStep.getStepType()) {
-				case Query:
-					this.query(abstractStep.unwrap(QueryStep.class), subQueriesResult);
-					break;
-				case Merge:
-					this.merge(abstractStep.unwrap(MergeStep.class), subQueriesResult);
-					break;
-			}
-			AbstractStep nextStep = optimizedResult.nextStep();
-			if (nextStep != null) {
-				abstractStep = nextStep;
-			}
-		} while (!optimizedResult.finalStep());
-
-		TableConfig tableConfig = this.tableConfig(targetClass);
-		List<Map<String, Object>> queryResults =
-				subQueriesResult.getOrDefault(abstractStep.getStepCode(), Collections.emptyList());
-		List<Map<String, Object>> recordList = new ArrayList<>();
-		long totalCount = 0L;
-		switch (abstractStep.getStepType()) {
-			case Query:
-				recordList.addAll(queryResults);
-				totalCount = this.dataSource.queryTotal(abstractStep.unwrap(QueryStep.class).getQueryInfo());
-				break;
-			case Merge:
-				MergeStep mergeStep = abstractStep.unwrap(MergeStep.class);
-				if (mergeStep.getBeginIndex() < Globals.INITIALIZE_INT_VALUE) {
-					recordList.addAll(queryResults);
-				} else {
-					if (mergeStep.getEndIndex() < Globals.INITIALIZE_INT_VALUE) {
-						for (int i = mergeStep.getBeginIndex(); i < queryResults.size(); i++) {
-							recordList.add(queryResults.get(i));
-						}
-					} else {
-						for (int i = mergeStep.getBeginIndex(); i < mergeStep.getEndIndex(); i++) {
-							recordList.add(queryResults.get(i));
-						}
-					}
-				}
-				totalCount = queryResults.size();
-				break;
-		}
-		List<T> resultList = new ArrayList<>();
-		for (Map<String, Object> resultMap : recordList) {
-			T object = ObjectUtils.newInstance(targetClass);
-			tableConfig.copyData(resultMap, object);
-			resultList.add(object);
-		}
-		PartialCollection<T> partialCollection = new PartialCollection<>(resultList, totalCount);
-		if (queryInfo.isCacheables() && StringUtils.notBlank(cacheKey)) {
-			this.cacheClient().ifPresent(cacheClient -> cacheClient.set(cacheKey, partialCollection.cacheData()));
-		}
-		return partialCollection;
-	}
-
-	/**
 	 * <h3 class="en-US">Save entity class to the database</h3>
 	 * <h3 class="zh-CN">保存实体类到数据库</h3>
 	 *
-	 * @param object <span class="en-US">Entity classes instance object</span>
-	 *               <span class="zh-CN">实体类实例对象</span>
+	 * @param object      <span class="en-US">Entity classes instance object</span>
+	 *                    <span class="zh-CN">实体类实例对象</span>
+	 * @param operateUser <span class="en-US">Operate user identified code</span>
+	 *                    <span class="zh-CN">操作人识别代码</span>
 	 * @throws Exception <span class="en-US">If an error occurs during operation</span>
 	 *                   <span class="zh-CN">如果操作过程中出错</span>
 	 */
-	public void saveRecord(@Nonnull final BaseObject object) throws Exception {
+	public void saveRecord(@Nonnull final BaseObject object, final Long operateUser) throws Exception {
 		if (this.checkExist(object)) {
 			throw new MultilingualSQLException(0x00DB00010009L);
 		}
 		if (this.readOnly.get()) {
-			throw new MultilingualSQLException(0x00DB0001000AL);
+			throw new MultilingualSQLException(0x00DB00010010L);
 		}
 		TableConfig tableConfig = this.tableConfig(object.getClass());
 		boolean restoreMode = Optional.ofNullable(this.restoreMode.get()).orElse(Boolean.FALSE);
@@ -623,13 +720,12 @@ public final class EntityFactory {
 		if (!primaryKeyMap.isEmpty()) {
 			tableConfig.primaryKey(object, primaryKeyMap);
 		}
-		this.newConfig(Boolean.FALSE, object, dataMap.keySet(), tableConfig);
-		if (tableConfig.isCacheable()) {
-			this.cacheClient().ifPresent(cacheClient ->
-					cacheClient.set(tableConfig.cacheKey(object), object.toFormattedJson()));
-		}
+		this.newConfig(Boolean.TRUE, object, dataMap.keySet(), tableConfig);
+		this.cacheData(tableConfig, object);
 		if (!restoreMode) {
-			this.mergeObjects(object, tableConfig.getReferenceDefineList(), List.of(CascadeType.ALL, CascadeType.PERSIST));
+			this.logOperate(object, operateUser, MagiGlobals.OPERATE_CODE_CREATE);
+			this.mergeObjects(object, tableConfig.getReferenceDefineList(),
+					List.of(CascadeType.ALL, CascadeType.PERSIST), operateUser, MagiGlobals.OPERATE_CODE_CREATE);
 		}
 	}
 
@@ -637,26 +733,35 @@ public final class EntityFactory {
 	 * <h3 class="en-US">Update entity class to database</h3>
 	 * <h3 class="zh-CN">更新实体类到数据库</h3>
 	 *
-	 * @param object <span class="en-US">Entity classes instance object</span>
-	 *               <span class="zh-CN">实体类实例对象</span>
+	 * @param object      <span class="en-US">Entity classes instance object</span>
+	 *                    <span class="zh-CN">实体类实例对象</span>
+	 * @param operateUser <span class="en-US">Operate user identified code</span>
+	 *                    <span class="zh-CN">操作人识别代码</span>
+	 * @param operateCode <span class="en-US">Operate code</span>
+	 *                    <span class="zh-CN">操作代码</span>
 	 * @throws Exception <span class="en-US">If an error occurs during operation</span>
 	 *                   <span class="zh-CN">如果操作过程中出错</span>
 	 */
-	public void updateRecord(@Nonnull final BaseObject object) throws Exception {
+	public void updateRecord(@Nonnull final BaseObject object, final Long operateUser,
+	                         final Integer operateCode) throws Exception {
 		if (this.readOnly.get()) {
-			throw new MultilingualSQLException(0x00DB0001000AL);
+			throw new MultilingualSQLException(0x00DB00010010L);
 		}
 		this.checkModify(object);
 		TableConfig tableConfig = this.tableConfig(object.getClass());
 		tableConfig.desensitize(object);
-		this.dataSource.update(tableConfig.getTableDefine().getTableName(),
-				tableConfig.dataMap(object, ColumnDefine::isUpdatable),
-				tableConfig.dataMap(object, ColumnDefine::isPrimaryKey));
-		if (tableConfig.isCacheable()) {
-			this.cacheClient().ifPresent(cacheClient ->
-					cacheClient.set(tableConfig.cacheKey(object), object.toFormattedJson()));
+		int resultCount = this.dataSource.update(tableConfig.getTableDefine().getTableName(),
+				tableConfig.updateMap(object), tableConfig.filterMap(object));
+		if (resultCount != 1) {
+			throw new MultilingualSQLException(0x00DB00010023L);
 		}
-		this.mergeObjects(object, tableConfig.getReferenceDefineList(), List.of(CascadeType.ALL, CascadeType.MERGE));
+		this.cacheData(tableConfig, object);
+		boolean restoreMode = Optional.ofNullable(this.restoreMode.get()).orElse(Boolean.FALSE);
+		if (!restoreMode) {
+			this.logOperate(object, operateUser, operateCode);
+			this.mergeObjects(object, tableConfig.getReferenceDefineList(), List.of(CascadeType.ALL, CascadeType.MERGE),
+					operateUser, operateCode);
+		}
 	}
 
 	/**
@@ -670,15 +775,19 @@ public final class EntityFactory {
 	 */
 	public void deleteRecord(@Nonnull final BaseObject object) throws Exception {
 		if (this.readOnly.get()) {
-			throw new MultilingualSQLException(0x00DB0001000AL);
+			throw new MultilingualSQLException(0x00DB00010010L);
 		}
 		this.checkModify(object);
 		TableConfig tableConfig = this.tableConfig(object.getClass());
-		tableConfig.desensitize(object);
-		this.dataSource.delete(tableConfig.getTableDefine().getTableName(),
-				tableConfig.dataMap(object, ColumnDefine::isPrimaryKey));
+		int resultCount = this.dataSource.delete(tableConfig.getTableDefine().getTableName(), tableConfig.filterMap(object));
+		if (resultCount != 1) {
+			throw new MultilingualSQLException(0x00DB00010024L);
+		}
 		if (tableConfig.isCacheable()) {
-			this.cacheClient().ifPresent(cacheClient -> cacheClient.delete(tableConfig.cacheKey(object)));
+			String cacheKey = tableConfig.identifier(object);
+			if (StringUtils.notBlank(cacheKey)) {
+				this.cacheClient().ifPresent(cacheClient -> cacheClient.del(cacheKey));
+			}
 		}
 		List<CascadeType> cascadeTypes = List.of(CascadeType.ALL, CascadeType.REMOVE);
 		for (ReferenceDefine<?> referenceDefine : tableConfig.getReferenceDefineList()) {
@@ -696,6 +805,26 @@ public final class EntityFactory {
 			}
 		}
 		this.threadLocal.get().remove(object.identifiedCode());
+		if (!Optional.ofNullable(this.restoreMode.get()).orElse(Boolean.FALSE)) {
+			try {
+				this.dataSource.delete("NSYC_Record_Operate_Log",
+						Map.of("tableIdentifier", tableConfig.identifier()));
+			} catch (Exception ignore) {
+			}
+		}
+	}
+
+	private void cacheData(final TableConfig tableConfig, final BaseObject record) throws SQLException {
+		if (tableConfig.isCacheable()) {
+			Optional.of(tableConfig.identifier(record))
+					.filter(StringUtils::notBlank)
+					.ifPresent(cacheKey ->
+							Optional.of(BeanUtils.objectToString(record, StringType.JSON))
+									.filter(StringUtils::notBlank)
+									.ifPresent(cacheData ->
+											this.cacheClient().ifPresent(cacheClient ->
+													cacheClient.set(cacheKey, cacheData))));
+		}
 	}
 
 	/**
@@ -718,16 +847,13 @@ public final class EntityFactory {
 		});
 		Map<String, Object> dataMap = this.dataSource.retrieve(tableConfig.getTableDefine().getTableName(),
 				queryColumns.substring(BrainCommons.DEFAULT_SPLIT_CHARACTER.length()),
-				tableConfig.dataMap(object, ColumnDefine::isPrimaryKey), Boolean.FALSE);
+				tableConfig.filterMap(object), Boolean.FALSE, LockModeType.NONE);
 
 		if (dataMap.isEmpty()) {
 			throw new MultilingualSQLException(0x00DB00010011L);
 		}
 		tableConfig.copyData(dataMap, object);
-		if (tableConfig.isCacheable()) {
-			this.cacheClient().ifPresent(cacheClient ->
-					cacheClient.set(tableConfig.cacheKey(object), object.toFormattedJson()));
-		}
+		this.cacheData(tableConfig, object);
 		List<CascadeType> cascadeTypes = List.of(CascadeType.ALL, CascadeType.REFRESH);
 		for (ReferenceDefine<?> referenceDefine : tableConfig.getReferenceDefineList()) {
 			if (Arrays.stream(referenceDefine.getCascadeTypes()).anyMatch(cascadeTypes::contains)
@@ -766,7 +892,7 @@ public final class EntityFactory {
 	public <T> T retrieveRecord(final Serializable primaryKey, final Class<T> entityClass, final boolean forUpdate)
 			throws Exception {
 		TableConfig tableConfig = this.tableConfig(entityClass);
-		return this.retrieveRecord(entityClass, tableConfig.filterMap(primaryKey), forUpdate);
+		return this.retrieveRecord(entityClass, tableConfig.primaryKeyMap(primaryKey), forUpdate);
 	}
 
 	/**
@@ -786,93 +912,87 @@ public final class EntityFactory {
 	 * @throws Exception <span class="en-US">An error occurred during execution</span>
 	 *                   <span class="zh-CN">执行过程中出错</span>
 	 */
-	public <T> T retrieveRecord(@Nonnull final Class<T> entityClass, final Map<String, Object> filterMap,
+	public <T> T retrieveRecord(@Nonnull final Class<T> entityClass, final TreeMap<String, Object> filterMap,
 	                            final boolean forUpdate) throws Exception {
 		TableConfig tableConfig = this.tableConfig(entityClass);
-		String cacheKey = tableConfig.cacheKey(filterMap);
+		String cacheKey = tableConfig.identifier(filterMap);
 		Map<String, Object> dataMap = null;
 		boolean missed = Boolean.TRUE;
 		if (tableConfig.isCacheable() && !forUpdate) {
 			dataMap = this.cacheClient()
 					.map(cacheClient -> cacheClient.get(cacheKey))
 					.filter(StringUtils::notBlank)
-					.map(cacheData -> StringUtils.dataToMap(cacheData, StringUtils.StringType.JSON))
+					.map(cacheData -> BeanUtils.stringToMap(cacheData, StringType.JSON, Globals.DEFAULT_ENCODING))
 					.orElse(null);
-			missed = Boolean.FALSE;
+			missed = (dataMap == null || dataMap.isEmpty());
 		}
 		if (missed) {
+			StringBuilder queryColumns = new StringBuilder();
+			tableConfig.queryColumns().forEach(columnDefine ->
+					queryColumns.append(BrainCommons.DEFAULT_SPLIT_CHARACTER).append(columnDefine.getColumnName()));
 			dataMap = this.dataSource.retrieve(tableConfig.getTableDefine().getTableName(),
-					Globals.DEFAULT_VALUE_STRING, filterMap, forUpdate);
+					queryColumns.substring(BrainCommons.DEFAULT_SPLIT_CHARACTER.length()),
+					filterMap, forUpdate, tableConfig.getLockOption());
 		}
 		if (dataMap == null || dataMap.isEmpty()) {
 			return null;
 		}
-		T object = ObjectUtils.newInstance(entityClass);
-		tableConfig.copyData(dataMap, object);
-		this.newConfig(forUpdate, (BaseObject) object, dataMap.keySet(), tableConfig);
+		T object = this.dataMapToObject(entityClass, dataMap, forUpdate);
 		if (missed) {
-			this.cacheClient().ifPresent(cacheClient ->
-					cacheClient.set(cacheKey, ((BaseObject) object).toFormattedJson()));
+			String cacheData = BeanUtils.objectToString(new HashMap<>(dataMap), StringType.JSON);
+			this.cacheClient().ifPresent(cacheClient -> cacheClient.set(cacheKey, cacheData));
 		}
 		return object;
 	}
 
 	/**
-	 * <h3 class="en-US">Execute query commands for data updates</h3>
-	 * <h3 class="zh-CN">执行用于数据更新的查询命令</h3>
+	 * <h3 class="en-US">Convert the data mapping table to the target entity object</h3>
+	 * <h3 class="zh-CN">转换数据集映射表为目标对象</h3>
 	 *
 	 * @param entityClass <span class="en-US">Entity classes</span>
 	 *                    <span class="zh-CN">实体类</span>
-	 * @param filterMap   <span class="en-US">Retrieve filter mapping</span>
-	 *                    <span class="zh-CN">查询条件映射表</span>
+	 * @param dataMap     <span class="en-US">Data mapping table</span>
+	 *                    <span class="zh-CN">数据集映射表</span>
 	 * @param <T>         <span class="en-US">Entity class generic class</span>
 	 *                    <span class="zh-CN">实体类的泛型类</span>
-	 * @return <span class="en-US">List of data mapping tables for retrieved records</span>
-	 * <span class="zh-CN">检索到记录的数据映射表列表</span>
-	 * @throws Exception <span class="en-US">An error occurred during execution</span>
-	 *                   <span class="zh-CN">执行过程中出错</span>
+	 * @return <span class="en-US">Entity classes instance object</span>
+	 * <span class="zh-CN">实体类实例对象</span>
 	 */
-	public <T> PartialCollection<T> queryForUpdate(@Nonnull final Class<T> entityClass,
-	                                               final Map<String, Object> filterMap) throws Exception {
-		TableConfig tableConfig = this.tableConfig(entityClass);
-		TableDefine tableDefine = tableConfig.getTableDefine();
-		List<Condition> conditionList = new ArrayList<>();
-		filterMap.forEach((identifyName, identifyValue) ->
-				Optional.ofNullable(tableDefine.column(identifyName))
-						.map(columnDefine ->
-								Condition.column(Globals.DEFAULT_VALUE_INT, ConnectionCode.AND, ConditionCode.EQUAL,
-										tableDefine.getTableName(), columnDefine.getColumnName(),
-										AbstractParameter.constant(identifyValue)))
-						.ifPresent(conditionList::add));
-		List<Map<String, Object>> recordList =
-				this.dataSource.queryForUpdate(tableConfig.getTableDefine().getTableName(), conditionList,
-						tableConfig.getTableDefine().getLockOption());
-		List<T> resultList = new ArrayList<>();
-		for (Map<String, Object> resultMap : recordList) {
-			T object = ObjectUtils.newInstance(entityClass);
-			tableConfig.copyData(resultMap, object);
-			resultList.add(object);
-		}
-		return new PartialCollection<>(resultList, recordList.size());
+	public <T> T dataMapToObject(@Nonnull final Class<T> entityClass, final Map<String, Object> dataMap) {
+		return this.dataMapToObject(entityClass, dataMap, Boolean.FALSE);
 	}
 
 	/**
-	 * <h3 class="en-US">Query total record count</h3>
-	 * <h3 class="zh-CN">查询总记录数</h3>
+	 * <h3 class="en-US">Execute a query plan and return query results</h3>
+	 * <h3 class="zh-CN">执行查询计划并返回查询结果</h3>
 	 *
-	 * @param entityClass <span class="en-US">Entity classes</span>
-	 *                    <span class="zh-CN">实体类</span>
-	 * @param filterMap   <span class="en-US">Retrieve filter mapping</span>
-	 *                    <span class="zh-CN">查询条件映射表</span>
-	 * @return <span class="en-US">Total record count</span>
-	 * <span class="zh-CN">总记录条数</span>
+	 * @param queryInfo <span class="en-US">Query information instance object</span>
+	 *                  <span class="zh-CN">查询信息实例对象</span>
+	 * @return <span class="en-US">Query results</span>
+	 * <span class="zh-CN">查询结果</span>
 	 * @throws Exception <span class="en-US">An error occurred during execution</span>
 	 *                   <span class="zh-CN">执行过程中出错</span>
 	 */
-	public Long queryTotal(@Nonnull final Class<?> entityClass, final Map<String, Object> filterMap)
-			throws Exception {
-		TableConfig tableConfig = this.tableConfig(entityClass);
-		return this.dataSource.queryTotal(tableConfig.getTableDefine().getTableName(), filterMap);
+	public PartialCollection query(@Nonnull final QueryInfo queryInfo) throws Exception {
+		String cacheKey = queryInfo.getCacheKey();
+		if (queryInfo.isCacheables() && StringUtils.notBlank(cacheKey)) {
+			String cacheData = this.cacheClient()
+					.map(cacheClient -> cacheClient.get(cacheKey))
+					.orElse(Globals.DEFAULT_VALUE_STRING);
+			if (StringUtils.notBlank(cacheData)) {
+				PartialCollection partialCollection = PartialCollection.parse(cacheData);
+				if (partialCollection != null) {
+					return partialCollection;
+				}
+			}
+		}
+
+		PartialCollection partialCollection = this.dataSource.query(queryInfo);
+		if (queryInfo.isCacheables() && StringUtils.notBlank(cacheKey)) {
+			this.cacheClient()
+					.ifPresent(cacheClient -> cacheClient.set(cacheKey, partialCollection.toString()));
+		}
+		return partialCollection;
 	}
 
 	/**
@@ -887,8 +1007,8 @@ public final class EntityFactory {
 	 *                      <span class="zh-CN">执行过程中出错</span>
 	 */
 	public Long queryTotal(@Nonnull final QueryInfo queryInfo) throws Exception {
-		String cacheKey = queryInfo.isCacheables() ? this.cacheKey(queryInfo) : Globals.DEFAULT_VALUE_STRING;
-		if (queryInfo.isCacheables()) {
+		String cacheKey = queryInfo.getCacheKey();
+		if (queryInfo.isCacheables() && StringUtils.notBlank(cacheKey)) {
 			String cacheData = this.cacheClient()
 					.map(cacheClient -> cacheClient.get(cacheKey))
 					.orElse(Globals.DEFAULT_VALUE_STRING);
@@ -896,36 +1016,43 @@ public final class EntityFactory {
 				return Long.parseLong(cacheData, 16);
 			}
 		}
-		OptimizedResult optimizedResult = this.newOptimizer().optimize(queryInfo);
-		Map<Long, List<Map<String, Object>>> subQueriesResult = new HashMap<>();
-
-		if (optimizedResult.finalStep()) {
-			return 0L;
+		long totalCount = this.dataSource.queryTotal(queryInfo);
+		if (totalCount >= 0L && queryInfo.isCacheables() && StringUtils.notBlank(cacheKey)) {
+			this.cacheClient().ifPresent(cacheClient ->
+					cacheClient.set(cacheKey, Long.toString(totalCount, 16)));
 		}
-		AbstractStep abstractStep = optimizedResult.nextStep();
-		do {
-			switch (abstractStep.getStepType()) {
-				case Query:
-					this.query(abstractStep.unwrap(QueryStep.class), subQueriesResult);
-					break;
-				case Merge:
-					this.merge(abstractStep.unwrap(MergeStep.class), subQueriesResult);
-					break;
-			}
-			AbstractStep nextStep = optimizedResult.nextStep();
-			if (nextStep != null) {
-				abstractStep = nextStep;
-			}
-		} while (!optimizedResult.finalStep());
+		return totalCount;
+	}
 
-		switch (abstractStep.getStepType()) {
-			case Query:
-				return this.dataSource.queryTotal(abstractStep.unwrap(QueryStep.class).getQueryInfo());
-			case Merge:
-				return (long) subQueriesResult.getOrDefault(abstractStep.getStepCode(), Collections.emptyList()).size();
-			default:
-				return 0L;
+	/**
+	 * <h3 class="en-US">Read data record operate log list</h3>
+	 * <h3 class="zh-CN">读取数据记录操作日志</h3>
+	 *
+	 * @param object <span class="en-US">Entity classes instance object</span>
+	 *               <span class="zh-CN">实体类实例对象</span>
+	 * @return <span class="en-US">Operate log information list</span>
+	 * <span class="zh-CN">操作日志信息列表</span>
+	 */
+	public List<RecordLogger> recordLogs(@Nonnull final BaseObject object) {
+		final List<RecordLogger> logList = new ArrayList<>();
+		try {
+			TableConfig tableConfig = this.tableConfig(object.getClass());
+			if (tableConfig != null) {
+				QueryInfo queryInfo = EntityQueryBuilder.newBuilder(RecordLogger.class)
+						.where()
+						.equalTo(RecordLogger.class, "tableIdentifier").matchValue(tableConfig.identifier()).confirm()
+						.equalTo(RecordLogger.class, "recordIdentifier").matchValue(tableConfig.identifier(object)).confirm()
+						.confirm()
+						.build();
+				this.dataSource.query(queryInfo).asList()
+						.forEach(dataMap ->
+								Optional.ofNullable(this.dataMapToObject(RecordLogger.class, dataMap, Boolean.FALSE))
+										.ifPresent(logList::add));
+			}
+		} catch (Exception ignore) {
+			logList.clear();
 		}
+		return logList;
 	}
 
 	/**
@@ -943,9 +1070,13 @@ public final class EntityFactory {
 	 */
 	public void lazyLoad(@Nonnull final BaseObject object, final String fieldName, final boolean returnArray)
 			throws Exception {
-		if (!this.checkExist(object) || this.loadedField(object, fieldName)) {
+		if (!this.checkExist(object) || this.persistenceConfig(object).loadedField(fieldName)) {
 			//  Is not an attached object, maybe a new record or current field was loaded
 			return;
+		}
+
+		if (LOGGER.isDebugEnabled()) {
+			LOGGER.debug("Lazy_Load_Field_Debug", ClassUtils.originalClassName(object.getClass()), fieldName);
 		}
 
 		PersistenceConfig persistenceConfig = this.persistenceConfig(object);
@@ -955,7 +1086,8 @@ public final class EntityFactory {
 		if (StringUtils.notBlank(columnName)) {
 			Map<String, Object> dataMap =
 					this.dataSource.retrieve(tableConfig.getTableDefine().getTableName(),
-							columnName, tableConfig.dataMap(object, ColumnDefine::isPrimaryKey), Boolean.FALSE);
+							columnName, tableConfig.filterMap(object),
+							persistenceConfig.isForUpdate(), tableConfig.getLockOption());
 			if (dataMap.containsKey(columnName)) {
 				fieldValue = dataMap.get(columnName);
 			}
@@ -963,27 +1095,36 @@ public final class EntityFactory {
 			ReferenceDefine<?> referenceDefine = tableConfig.referenceDefine(fieldName);
 			Class<?> referenceClass = referenceDefine.getReferenceClass();
 			TableConfig referenceTable = this.tableConfig(referenceClass);
-			Map<String, Object> filterMap = new HashMap<>();
+			TreeMap<String, Object> filterMap = new TreeMap<>();
 			final Object primaryKey;
 			if (tableConfig.primaryKeyConfig.isCompositeId()) {
 				primaryKey = ReflectionUtils.getFieldValue(tableConfig.primaryKeyConfig.getFieldName(), object);
 			} else {
 				primaryKey = object;
 			}
-			referenceDefine.getJoinColumnList().forEach(joinDefine ->
-					filterMap.put(referenceTable.columnName(joinDefine.getReferenceField()),
-							ReflectionUtils.getFieldValue(joinDefine.getCurrentField(), primaryKey)));
+			referenceDefine.getJoinColumnList()
+					.forEach(joinDefine ->
+							filterMap.put(referenceTable.columnName(joinDefine.getReferenceField()),
+									ReflectionUtils.getFieldValue(joinDefine.getCurrentField(),
+											tableConfig.primaryKey(joinDefine.getCurrentField()) ? primaryKey : object)));
 			if (referenceDefine.isReturnArray()) {
-				List<Map<String, Object>> resultList =
-						this.dataSource.query(referenceTable.getTableDefine().getTableName(),
-								Globals.DEFAULT_VALUE_STRING, filterMap);
+				List<Map<String, Object>> dataList;
+				if (persistenceConfig.isForUpdate()) {
+					dataList = this.queryForUpdate(referenceClass, filterMap).asList();
+				} else {
+					EntityConditionsBuilder<EntityQueryBuilder> conditionsBuilder =
+							EntityQueryBuilder.newBuilder(referenceClass).where();
+					for (Map.Entry<String, Object> entry : filterMap.entrySet()) {
+						conditionsBuilder =
+								conditionsBuilder.equalTo(referenceClass, entry.getKey())
+										.matchValue(entry.getValue())
+										.confirm();
+					}
+					dataList = this.query(conditionsBuilder.confirm().build()).asList();
+				}
 				List<Object> referenceList = new ArrayList<>();
-				for (Map<String, Object> resultMap : resultList) {
-					Object referenceObject = ObjectUtils.newInstance(referenceClass);
-					referenceTable.copyData(resultMap, referenceObject);
-					this.newConfig(persistenceConfig.isForUpdate(), (BaseObject) referenceObject,
-							resultMap.keySet(), referenceTable);
-					referenceList.add(referenceObject);
+				for (Map<String, Object> dataMap : dataList) {
+					referenceList.add(this.dataMapToObject(referenceClass, dataMap, persistenceConfig.isForUpdate()));
 				}
 				if (returnArray) {
 					fieldValue = CollectionUtils.toArray(referenceList);
@@ -992,15 +1133,7 @@ public final class EntityFactory {
 				}
 			} else {
 				try {
-					Map<String, Object> dataMap =
-							this.dataSource.retrieve(referenceTable.getTableDefine().getTableName(),
-									Globals.DEFAULT_VALUE_STRING, filterMap, persistenceConfig.isForUpdate());
-					if (!dataMap.isEmpty()) {
-						fieldValue = ObjectUtils.newInstance(referenceDefine.getReferenceClass());
-						referenceTable.copyData(dataMap, fieldValue);
-						this.newConfig(persistenceConfig.isForUpdate(), (BaseObject) fieldValue,
-								dataMap.keySet(), referenceTable);
-					}
+					fieldValue = this.retrieveRecord(referenceClass, filterMap, persistenceConfig.isForUpdate());
 				} catch (Exception e) {
 					LOGGER.error("");
 				}
@@ -1037,10 +1170,37 @@ public final class EntityFactory {
 	}
 
 	/**
+	 * <h3 class="en-US">Save data record operate log</h3>
+	 * <h3 class="zh-CN">记录数据操作日志</h3>
+	 *
+	 * @param object      <span class="en-US">Entity classes instance object</span>
+	 *                    <span class="zh-CN">实体类实例对象</span>
+	 * @param operateUser <span class="en-US">Operate user identified code</span>
+	 *                    <span class="zh-CN">操作人识别代码</span>
+	 * @param operateCode <span class="en-US">Operate code</span>
+	 *                    <span class="zh-CN">操作代码</span>
+	 */
+	private void logOperate(@Nonnull final BaseObject object, final Long operateUser, final Integer operateCode) {
+		if (operateUser != null && operateCode != null) {
+			try {
+				TableConfig tableConfig = this.tableConfig(object.getClass());
+				RecordLogger recordLogger = new RecordLogger();
+				recordLogger.setTableIdentifier(tableConfig.identifier());
+				recordLogger.setRecordIdentifier(tableConfig.identifier(object));
+				recordLogger.setOperateUser(operateUser);
+				recordLogger.setOperateCode(operateCode);
+				recordLogger.setOperateTimestamp(DateTimeUtils.currentUTCTimeMillis());
+				recordLogger.save();
+			} catch (Exception ignore) {
+			}
+		}
+	}
+
+	/**
 	 * <h3 class="en-US">Scan and register a data table definition class that matches the given package name list</h3>
 	 * <h3 class="zh-CN">扫描并注册符合给定包名列表的数据表定义类</h3>
 	 *
-	 * @param classLoader  <span class="en-US">Which class loader need be scanned</span>
+	 * @param classLoader  <span class="en-US">Which class loader need to be scanned</span>
 	 *                     <span class="zh-CN">需要扫描的类加载器</span>
 	 * @param scanPackages <span class="en-US">Package name list, which can be a regular expression list</span>
 	 *                     <span class="zh-CN">包名列表，可以是正则表达式列表</span>
@@ -1050,7 +1210,7 @@ public final class EntityFactory {
 	@SuppressWarnings("unchecked")
 	private void scanPackages(final ClassLoader classLoader, @Nonnull final List<String> scanPackages)
 			throws Exception {
-		if (classLoader == null) {
+		if (classLoader == null || scanPackages.isEmpty()) {
 			return;
 		}
 		this.scanPackages(classLoader.getParent(), scanPackages);
@@ -1073,6 +1233,42 @@ public final class EntityFactory {
 	}
 
 	/**
+	 * <h3 class="en-US">Execute query commands for data updates</h3>
+	 * <h3 class="zh-CN">执行用于数据更新的查询命令</h3>
+	 *
+	 * @param entityClass <span class="en-US">Entity classes</span>
+	 *                    <span class="zh-CN">实体类</span>
+	 * @param filterMap   <span class="en-US">Retrieve filter mapping</span>
+	 *                    <span class="zh-CN">查询条件映射表</span>
+	 * @return <span class="en-US">List of data mapping tables for retrieved records</span>
+	 * <span class="zh-CN">检索到记录的数据映射表列表</span>
+	 * @throws Exception <span class="en-US">An error occurred during execution</span>
+	 *                   <span class="zh-CN">执行过程中出错</span>
+	 */
+	private PartialCollection queryForUpdate(@Nonnull final Class<?> entityClass, final Map<String, Object> filterMap)
+			throws Exception {
+		TableConfig tableConfig = this.tableConfig(entityClass);
+		TableDefine tableDefine = tableConfig.getTableDefine();
+		EntityQueryBuilder queryBuilder = EntityQueryBuilder.newBuilder(entityClass);
+		EntityItemsBuilder<EntityQueryBuilder> itemsBuilder = queryBuilder.items();
+		for (ColumnDefine columnDefine : tableDefine.getColumnDefines()) {
+			itemsBuilder = itemsBuilder.column(entityClass, columnDefine.getColumnName()).confirm();
+		}
+		EntityConditionsBuilder<EntityQueryBuilder> conditionsBuilder = itemsBuilder.confirm().where();
+		for (Map.Entry<String, Object> entry : filterMap.entrySet()) {
+			ColumnDefine columnDefine = tableDefine.column(entry.getKey());
+			if (columnDefine == null) {
+				continue;
+			}
+			conditionsBuilder =
+					conditionsBuilder.equalTo(entityClass, columnDefine.getColumnName())
+							.matchValue(entry.getValue())
+							.confirm();
+		}
+		return this.dataSource.query(conditionsBuilder.confirm().forUpdate(tableConfig.getLockOption()).build());
+	}
+
+	/**
 	 * <h3 class="en-US">Set the working mode of the current thread</h3>
 	 * <h3 class="zh-CN">设置当前线程的工作模式</h3>
 	 *
@@ -1087,278 +1283,27 @@ public final class EntityFactory {
 	}
 
 	/**
-	 * <h3 class="en-US">Generate cache unique identifier</h3>
-	 * <h3 class="zh-CN">生成缓存唯一识别码</h3>
+	 * <h3 class="en-US">Convert the data mapping table to the target entity object</h3>
+	 * <h3 class="zh-CN">转换数据集映射表为目标对象</h3>
 	 *
-	 * @param queryInfo <span class="en-US">Query information instance object</span>
-	 *                  <span class="zh-CN">查询信息实例对象</span>
-	 * @return <span class="en-US">Unique identifier</span>
-	 * <span class="zh-CN">唯一识别代码</span>
+	 * @param entityClass <span class="en-US">Entity classes</span>
+	 *                    <span class="zh-CN">实体类</span>
+	 * @param dataMap     <span class="en-US">Data mapping table</span>
+	 *                    <span class="zh-CN">数据集映射表</span>
+	 * @param forUpdate   <span class="en-US">Retrieve record is using for update</span>
+	 *                    <span class="zh-CN">读取的记录用于更新</span>
+	 * @param <T>         <span class="en-US">Entity class generic class</span>
+	 *                    <span class="zh-CN">实体类的泛型类</span>
+	 * @return <span class="en-US">Entity classes instance object</span>
+	 * <span class="zh-CN">实体类实例对象</span>
 	 */
-	private String cacheKey(@Nonnull final QueryInfo queryInfo) throws SQLException {
-		TreeMap<String, TreeMap<String, TreeMap<String, Object>>> joinMaps = new TreeMap<>();
-		queryInfo.getQueryJoins().forEach(queryJoin -> {
-			TreeMap<String, TreeMap<String, Object>> joinMap = joinMaps.getOrDefault(queryJoin.getDriverTable(), new TreeMap<>());
-			TreeMap<String, String> joinColumns = new TreeMap<>();
-			queryJoin.getJoinInfos()
-					.forEach(joinInfo -> joinColumns.put(joinInfo.getJoinKey(), joinInfo.getReferenceKey()));
-			TreeMap<String, Object> joinData = joinMap.getOrDefault(queryJoin.getJoinTable(), new TreeMap<>());
-			joinData.put("Join_Type", queryJoin.getJoinType().toString());
-			joinData.put("Join_Columns", joinColumns);
-			joinMap.put(queryJoin.getJoinTable(), joinData);
-			joinMaps.put(queryJoin.getDriverTable(), joinMap);
-		});
-
-		List<AbstractItem> itemList = queryInfo.getItemList();
-		itemList.sort(Comparator.comparing(SortedItem::getSortCode));
-		TreeMap<String, List<TreeMap<String, Object>>> itemMaps = new TreeMap<>();
-		for (AbstractItem abstractItem : itemList) {
-			Optional.of(this.itemMap(abstractItem))
-					.filter(itemMap -> !itemMap.isEmpty())
-					.ifPresent(itemMap -> {
-						List<TreeMap<String, Object>> dataList =
-								itemMaps.getOrDefault(abstractItem.getItemType().toString(), new ArrayList<>());
-						dataList.add(itemMap);
-						itemMaps.put(abstractItem.getItemType().toString(), dataList);
-					});
-		}
-		TreeMap<String, String> orderByData = new TreeMap<>();
-		queryInfo.getOrderByList().forEach(orderBy ->
-				orderByData.put(orderBy.getTableName() + BrainCommons.DEFAULT_NAME_SPLIT + orderBy.getColumnName(),
-						orderBy.getOrderType().toString()));
-		List<GroupBy> groupByList = queryInfo.getGroupByList();
-		groupByList.sort(Comparator.comparing(SortedItem::getSortCode));
-		List<String> groupDataList = new ArrayList<>();
-		groupByList.forEach(groupBy ->
-				groupDataList.add(groupBy.getTableName() + BrainCommons.DEFAULT_NAME_SPLIT + groupBy.getColumnName()));
-
-		TreeMap<String, Object> queryMap = new TreeMap<>();
-		queryMap.put("Driven_Table", queryInfo.getTableName());
-		queryMap.put("Query_Joins", joinMaps);
-		queryMap.put("Query_Items", itemMaps);
-		queryMap.put("Condition_List", this.conditionList(queryInfo.getConditionList()));
-		queryMap.put("Order_By", orderByData);
-		if (!groupDataList.isEmpty()) {
-			queryMap.put("Group_By", groupDataList);
-			queryMap.put("Having_List", this.conditionList(queryInfo.getHavingList()));
-		}
-		if (queryInfo.getPageLimit() > Globals.INITIALIZE_INT_VALUE) {
-			queryMap.put("Page_No", Integer.max(queryInfo.getPageNo(), BrainCommons.DEFAULT_PAGE_NO));
-			queryMap.put("Page_Limit", queryInfo.getPageLimit());
-		}
-
-		String jsonData = StringUtils.objectToString(queryMap, StringUtils.StringType.JSON, Boolean.TRUE);
-		if (LOGGER.isDebugEnabled()) {
-			LOGGER.debug("Query_Cache_Key_Data", jsonData);
-		}
-		return ConvertUtils.toHex(SecurityUtils.SHA256(jsonData));
-	}
-
-	/**
-	 * <h3 class="en-US">Convert query item information into data mapping table</h3>
-	 * <h3 class="zh-CN">转换查询项信息为数据映射表</h3>
-	 *
-	 * @param abstractItem <span class="en-US">Query item information</span>
-	 *                     <span class="zh-CN">查询项信息</span>
-	 * @return <span class="en-US">Data mapping table</span>
-	 * <span class="zh-CN">数据映射表</span>
-	 * @throws SQLException <span class="en-US">Error converting data type</span>
-	 *                      <span class="zh-CN">转换数据类型时出错</span>
-	 */
-	private TreeMap<String, Object> itemMap(@Nonnull final AbstractItem abstractItem) throws SQLException {
-		TreeMap<String, Object> dataMap = new TreeMap<>();
-		switch (abstractItem.getItemType()) {
-			case COLUMN:
-				dataMap.putAll(this.columnDataMap(abstractItem.unwrap(ColumnItem.class)));
-				break;
-			case FUNCTION:
-				dataMap.putAll(this.functionDataMap(abstractItem.unwrap(FunctionItem.class)));
-				break;
-			case QUERY:
-				QueryItem queryItem = abstractItem.unwrap(QueryItem.class);
-				if (queryItem.getQueryData() != null) {
-					dataMap.putAll(this.queryDataMap(queryItem.getQueryData()));
-				}
-				break;
-		}
-
-		TreeMap<String, Object> itemMap = new TreeMap<>();
-		if (!dataMap.isEmpty()) {
-			itemMap.put("Sort_Code", abstractItem.getSortCode());
-			itemMap.put("Item_Data", dataMap);
-		}
-		return itemMap;
-	}
-
-	/**
-	 * <h3 class="en-US">Convert query column information into data mapping table</h3>
-	 * <h3 class="zh-CN">转换查询数据列信息为数据映射表</h3>
-	 *
-	 * @param columnItem <span class="en-US">Query data column information</span>
-	 *                   <span class="zh-CN">查询数据列信息</span>
-	 * @return <span class="en-US">Data mapping table</span>
-	 * <span class="zh-CN">数据映射表</span>
-	 */
-	private TreeMap<String, Object> columnDataMap(@Nonnull final ColumnItem columnItem) {
-		TreeMap<String, Object> columnDataMap = new TreeMap<>();
-		columnDataMap.put("Identify_Name",
-				columnItem.getTableName() + BrainCommons.DEFAULT_NAME_SPLIT + columnItem.getColumnName());
-		columnDataMap.put("Distinct", columnItem.isDistinct());
-		return columnDataMap;
-	}
-
-	/**
-	 * <h3 class="en-US">Convert query function information into data mapping table</h3>
-	 * <h3 class="zh-CN">转换查询函数信息为数据映射表</h3>
-	 *
-	 * @param functionItem <span class="en-US">Query function information</span>
-	 *                     <span class="zh-CN">查询函数信息</span>
-	 * @return <span class="en-US">Data mapping table</span>
-	 * <span class="zh-CN">数据映射表</span>
-	 * @throws SQLException <span class="en-US">Error converting data type</span>
-	 *                      <span class="zh-CN">转换数据类型时出错</span>
-	 */
-	private TreeMap<String, Object> functionDataMap(@Nonnull final FunctionItem functionItem) throws SQLException {
-		TreeMap<String, Object> functionDataMap = new TreeMap<>();
-		functionDataMap.put("Function_Name", functionItem.getFunctionName());
-		List<TreeMap<String, Object>> parameterList = new ArrayList<>();
-		List<AbstractParameter<?>> parameters = functionItem.getFunctionParams();
-		parameters.sort(Comparator.comparingInt(SortedItem::getSortCode));
-		for (AbstractParameter<?> abstractParameter : parameters) {
-			Optional.of(this.parameterMap(abstractParameter))
-					.filter(parameterMap -> !parameterMap.isEmpty())
-					.ifPresent(parameterList::add);
-		}
-		functionDataMap.put("Function_Parameters", parameterList);
-		return functionDataMap;
-
-	}
-
-	/**
-	 * <h3 class="en-US">Convert sub-query information into data mapping table</h3>
-	 * <h3 class="zh-CN">转换子查询信息为数据映射表</h3>
-	 *
-	 * @param queryData <span class="en-US">Sub-query information</span>
-	 *                  <span class="zh-CN">子查询信息</span>
-	 * @return <span class="en-US">Data mapping table</span>
-	 * <span class="zh-CN">数据映射表</span>
-	 * @throws SQLException <span class="en-US">Error converting data type</span>
-	 *                      <span class="zh-CN">转换数据类型时出错</span>
-	 */
-	private TreeMap<String, Object> queryDataMap(final QueryData queryData) throws SQLException {
-		TreeMap<String, Object> queryDataMap = new TreeMap<>();
-		queryDataMap.put("Sub_Query_Table", queryData.getTableName());
-		queryDataMap.put("Sub_Query_Item", this.itemMap(queryData.getQueryItem()));
-		queryDataMap.put("Sub_Condition_List", this.conditionList(queryData.getConditions()));
-		if (queryData.getGroupBy().isEmpty()) {
-			queryDataMap.put("Sub_Group_List", Collections.emptyList());
-			queryDataMap.put("Sub_Having_List", Collections.emptyList());
-		} else {
-			queryDataMap.put("Sub_Group_List", queryData.getGroupBy());
-			queryDataMap.put("Sub_Having_List", this.conditionList(queryData.getHavingList()));
-		}
-		return queryDataMap;
-	}
-
-	/**
-	 * <h3 class="en-US">Convert parameter information into data mapping table</h3>
-	 * <h3 class="zh-CN">转换参数信息为数据映射表</h3>
-	 *
-	 * @param abstractParameter <span class="en-US">Parameter information</span>
-	 *                          <span class="zh-CN">参数信息</span>
-	 * @return <span class="en-US">Data mapping table</span>
-	 * <span class="zh-CN">数据映射表</span>
-	 * @throws SQLException <span class="en-US">Error converting data type</span>
-	 *                      <span class="zh-CN">转换数据类型时出错</span>
-	 */
-	private TreeMap<String, Object> parameterMap(@Nonnull final AbstractParameter<?> abstractParameter)
-			throws SQLException {
-		TreeMap<String, Object> parameterData = new TreeMap<>();
-		switch (abstractParameter.getItemType()) {
-			case COLUMN:
-				ColumnParameter columnParameter = abstractParameter.unwrap(ColumnParameter.class);
-				parameterData.putAll(this.columnDataMap(columnParameter.getItemValue()));
-				break;
-			case CONSTANT:
-				ConstantParameter constantParameter = abstractParameter.unwrap(ConstantParameter.class);
-				parameterData.put("Constant_Data", constantParameter.getItemValue());
-				break;
-			case FUNCTION:
-				FunctionParameter functionParameter = abstractParameter.unwrap(FunctionParameter.class);
-				parameterData.putAll(this.functionDataMap(functionParameter.getItemValue()));
-				break;
-			case QUERY:
-				QueryParameter queryParameter = abstractParameter.unwrap(QueryParameter.class);
-				parameterData.putAll(this.queryDataMap(queryParameter.getItemValue()));
-				break;
-		}
-
-		TreeMap<String, Object> parameterMap = new TreeMap<>();
-		if (!parameterData.isEmpty()) {
-			parameterMap.put("Parameter_Type", abstractParameter.getItemType().toString());
-			parameterMap.put("Parameter_Data", parameterData);
-		}
-		return parameterMap;
-	}
-
-	/**
-	 * <h3 class="en-US">Convert the query condition information list into data mapping table</h3>
-	 * <h3 class="zh-CN">转换查询匹配信息列表为数据映射表</h3>
-	 *
-	 * @param conditionList <span class="en-US">Query condition information list</span>
-	 *                      <span class="zh-CN">查询匹配信息列表</span>
-	 * @return <span class="en-US">Data mapping table</span>
-	 * <span class="zh-CN">数据映射表</span>
-	 * @throws SQLException <span class="en-US">Error converting data type</span>
-	 *                      <span class="zh-CN">转换数据类型时出错</span>
-	 */
-	private List<TreeMap<String, Object>> conditionList(@Nonnull final List<Condition> conditionList)
-			throws SQLException {
-		conditionList.sort(Comparator.comparingInt(SortedItem::getSortCode));
-		List<TreeMap<String, Object>> returnList = new ArrayList<>();
-		for (Condition condition : conditionList) {
-			Optional.of(this.conditionMap(condition))
-					.filter(conditionMap -> !conditionMap.isEmpty())
-					.ifPresent(returnList::add);
-		}
-		return returnList;
-	}
-
-	/**
-	 * <h3 class="en-US">Convert query condition information into data mapping table</h3>
-	 * <h3 class="zh-CN">转换查询匹配信息为数据映射表</h3>
-	 *
-	 * @param condition <span class="en-US">Query condition information</span>
-	 *                  <span class="zh-CN">查询匹配信息</span>
-	 * @return <span class="en-US">Data mapping table</span>
-	 * <span class="zh-CN">数据映射表</span>
-	 * @throws SQLException <span class="en-US">Error converting data type</span>
-	 *                      <span class="zh-CN">转换数据类型时出错</span>
-	 */
-	private TreeMap<String, Object> conditionMap(final Condition condition) throws SQLException {
-		TreeMap<String, Object> conditionMap = new TreeMap<>();
-		switch (condition.getConditionType()) {
-			case COLUMN:
-				ColumnCondition columnCondition = condition.unwrap(ColumnCondition.class);
-				conditionMap.put("Condition_Code", columnCondition.getConditionCode().toString());
-				conditionMap.put("Function_Name", columnCondition.getFunctionName());
-				conditionMap.put("Identify_Name",
-						columnCondition.getTableName() + BrainCommons.DEFAULT_NAME_SPLIT + columnCondition.getColumnName());
-				conditionMap.put("Condition_Data", this.parameterMap(columnCondition.getConditionParameter()));
-				break;
-			case GROUP:
-				GroupCondition groupCondition = condition.unwrap(GroupCondition.class);
-				Optional.of(this.conditionList(groupCondition.getConditionList()))
-						.filter(conditionList -> !conditionList.isEmpty())
-						.ifPresent(conditionList -> conditionMap.put("Condition_Group", conditionList));
-				break;
-		}
-		if (conditionMap.isEmpty()) {
-			return conditionMap;
-		}
-		conditionMap.put("Connection_Code", condition.getConnectionCode().toString());
-		conditionMap.put("Condition_Type", condition.getConditionType().toString());
-		return conditionMap;
+	private <T> T dataMapToObject(@Nonnull final Class<T> entityClass, final Map<String, Object> dataMap,
+	                              final boolean forUpdate) {
+		TableConfig tableConfig = this.tableConfig(entityClass);
+		T object = ObjectUtils.newInstance(entityClass);
+		tableConfig.copyData(dataMap, object);
+		this.newConfig(forUpdate, (BaseObject) object, dataMap.keySet(), tableConfig);
+		return object;
 	}
 
 	/**
@@ -1374,8 +1319,11 @@ public final class EntityFactory {
 	 */
 	private void newConfig(final boolean forUpdate, final BaseObject object, final Set<String> keySet,
 	                       final TableConfig tableConfig) {
-		Hashtable<Long, PersistenceConfig> configHashtable = this.threadLocal.get();
-		if (configHashtable.containsKey(object.identifiedCode())) {
+		long identifyCode = object.identifiedCode();
+		if (this.threadLocal.get() == null) {
+			this.threadLocal.set(new Hashtable<>());
+		}
+		if (this.threadLocal.get().containsKey(identifyCode)) {
 			return;
 		}
 		PersistenceConfig persistenceConfig = new PersistenceConfig(forUpdate);
@@ -1383,13 +1331,19 @@ public final class EntityFactory {
 				Optional.ofNullable(tableConfig.tableDefine.column(columnName))
 						.map(ColumnDefine::getColumnName)
 						.ifPresent(persistenceConfig::loadField));
+		for (ReferenceDefine<?> referenceDefine : tableConfig.queryReferences()) {
+			String fieldName = referenceDefine.getFieldName();
+			Optional.ofNullable(ReflectionUtils.getFieldIfAvailable(object.getClass(), fieldName))
+					.map(field -> ReflectionUtils.getFieldValue(field, object))
+					.ifPresent(fieldValue -> persistenceConfig.loadField(fieldName));
+		}
 		for (ReferenceDefine<?> referenceDefine : tableConfig.getReferenceDefineList()) {
 			Field field = ReflectionUtils.getFieldIfAvailable(object.getClass(), referenceDefine.getFieldName());
 			if (ReflectionUtils.getFieldValue(field, object) != null) {
 				persistenceConfig.loadField(referenceDefine.getFieldName());
 			}
 		}
-		this.threadLocal.get().put(object.identifiedCode(), persistenceConfig);
+		this.threadLocal.get().put(identifyCode, persistenceConfig);
 	}
 
 	/**
@@ -1415,6 +1369,10 @@ public final class EntityFactory {
 		this.registerType(boolean.class, Types.BOOLEAN);
 		this.registerType(Date.class, Types.TIMESTAMP);
 		this.registerType(Calendar.class, Types.TIMESTAMP);
+		this.registerType(LocalDate.class, Types.DATE);
+		this.registerType(LocalTime.class, Types.TIME);
+		this.registerType(LocalDateTime.class, Types.TIMESTAMP);
+		this.registerType(Instant.class, Types.TIMESTAMP);
 		this.registerType(Byte[].class, Types.BLOB);
 		this.registerType(byte[].class, Types.BLOB);
 		this.registerType(Character[].class, Types.CLOB);
@@ -1434,8 +1392,7 @@ public final class EntityFactory {
 		if (this.redefinedClasses.contains(className)) {
 			return;
 		}
-		Optional.ofNullable(entityClass.getSuperclass())
-				.ifPresent(this::redefineClass);
+		Optional.ofNullable(entityClass.getSuperclass()).ifPresent(this::redefineClass);
 		if (entityClass.isAnnotationPresent(MappedSuperclass.class) || entityClass.isAnnotationPresent(Table.class)) {
 			try (final DynamicType.Unloaded<?> unloaded = new ByteBuddy().redefine(entityClass)
 					.visit(Advice.to(LazyLoadInterceptor.class)
@@ -1445,25 +1402,6 @@ public final class EntityFactory {
 			}
 			this.redefinedClasses.add(className);
 		}
-	}
-
-	/**
-	 * <h3 class="en-US">Get the associated column annotation for the given member information</h3>
-	 * <h3 class="zh-CN">获取给定成员信息的关联列注解</h3>
-	 *
-	 * @param member <span class="en-US">Member instance object obtained by reflection</span>
-	 *               <span class="zh-CN">反射获取的成员实例对象</span>
-	 * @return <span class="en-US">Associated column annotation array</span>
-	 * <span class="zh-CN">关联列注解数组</span>
-	 */
-	private static JoinColumn[] joinColumns(@Nonnull final AccessibleObject member) {
-		if (member.isAnnotationPresent(JoinColumns.class)) {
-			JoinColumns annotationColumns = member.getAnnotation(JoinColumns.class);
-			return annotationColumns.value();
-		} else if (member.isAnnotationPresent(JoinColumn.class)) {
-			return new JoinColumn[]{member.getAnnotation(JoinColumn.class)};
-		}
-		return new JoinColumn[0];
 	}
 
 	/**
@@ -1491,11 +1429,7 @@ public final class EntityFactory {
 	 *                      <span class="zh-CN">如果实体类实例对象未持久化或处于只读状态</span>
 	 */
 	private void checkModify(@Nonnull final BaseObject object) throws SQLException {
-		PersistenceConfig persistenceConfig = this.persistenceConfig(object);
-		if (persistenceConfig == null) {
-			throw new MultilingualSQLException(0x00DB00010010L);
-		}
-		if (!persistenceConfig.isForUpdate()) {
+		if (!this.persistenceConfig(object).isForUpdate()) {
 			throw new MultilingualSQLException(0x00DB00010008L);
 		}
 	}
@@ -1512,7 +1446,8 @@ public final class EntityFactory {
 	 *                   <span class="zh-CN">如果操作过程中出错</span>
 	 */
 	private void mergeObjects(@Nonnull final BaseObject object, final List<ReferenceDefine<?>> referenceDefineList,
-	                          final List<CascadeType> cascadeTypes) throws Exception {
+	                          final List<CascadeType> cascadeTypes, final Long operateUser, final Integer operateCode)
+			throws Exception {
 		for (ReferenceDefine<?> referenceDefine : referenceDefineList) {
 			if (Arrays.stream(referenceDefine.getCascadeTypes()).anyMatch(cascadeTypes::contains)) {
 				Object referenceObject = ReflectionUtils.getFieldValue(referenceDefine.getFieldName(), object);
@@ -1520,17 +1455,17 @@ public final class EntityFactory {
 					for (Object reference : CollectionUtils.toList(referenceObject)) {
 						if (reference instanceof BaseObject) {
 							if (this.checkExist((BaseObject) reference)) {
-								((BaseObject) reference).update();
+								((BaseObject) reference).update(operateUser, operateCode);
 							} else {
-								((BaseObject) reference).save();
+								((BaseObject) reference).save(operateUser);
 							}
 						}
 					}
 				} else if (referenceObject instanceof BaseObject) {
 					if (this.checkExist((BaseObject) referenceObject)) {
-						((BaseObject) referenceObject).update();
+						((BaseObject) referenceObject).update(operateUser, operateCode);
 					} else {
-						((BaseObject) referenceObject).save();
+						((BaseObject) referenceObject).save(operateUser);
 					}
 				}
 			}
@@ -1554,85 +1489,21 @@ public final class EntityFactory {
 				.orElseThrow(() -> new MultilingualSQLException(0x00DB00010008L));
 	}
 
-	/**
-	 * <h3 class="en-US">Checks the loading status by the given property of the given entity class instance object</h3>
-	 * <h3 class="zh-CN">检查给定实体类实例对象的给定属性的加载状态</h3>
-	 *
-	 * @param object    <span class="en-US">Entity classes instance object</span>
-	 *                  <span class="zh-CN">实体类实例对象</span>
-	 * @param fieldName <span class="en-US">Field name</span>
-	 *                  <span class="zh-CN">属性名称</span>
-	 * @return <span class="en-US">Check result</span>
-	 * <span class="zh-CN">检查结果</span>
-	 * @throws SQLException <span class="en-US">If the thread's persistent configuration information list is not initialized</span>
-	 *                      <span class="zh-CN">如果线程的持久化配置信息列表未初始化</span>
-	 */
-	private boolean loadedField(@Nonnull final BaseObject object, @Nonnull final String fieldName)
-			throws SQLException {
-		PersistenceConfig persistenceConfig = Optional.ofNullable(this.persistenceConfig(object))
-				.orElseThrow(() -> new MultilingualSQLException(0x00DB00010008L));
-		return persistenceConfig.loadedField(fieldName);
-	}
-
-	/**
-	 * <h3 class="en-US">Initialize the query optimizer implementation class instance object</h3>
-	 * <h3 class="zh-CN">初始化查询优化器实现类实例对象</h3>
-	 *
-	 * @return <span class="en-US">Query optimizer implementation class instance object</span>
-	 * <span class="zh-CN">查询优化器实现类实例对象</span>
-	 */
-	private QueryOptimizer newOptimizer() {
-		QueryOptimizer queryOptimizer;
-		if (StringUtils.isEmpty(this.optimizerName) || !REGISTERED_OPTIMIZERS.containsKey(this.optimizerName)) {
-			queryOptimizer = new QueryOptimizer.DefaultOptimizer();
-		} else {
-			queryOptimizer = (QueryOptimizer) ObjectUtils.newInstance(REGISTERED_OPTIMIZERS.get(this.optimizerName));
-		}
-		return queryOptimizer;
-	}
-
-	/**
-	 * <h3 class="en-US">Execute data query step</h3>
-	 * <h3 class="zh-CN">执行数据查询步骤</h3>
-	 *
-	 * @param queryStep        <span class="en-US">Query step instance object</span>
-	 *                         <span class="zh-CN">数据查询步骤实例对象</span>
-	 * @param subQueriesResult <span class="en-US">Pre-query result set mapping table</span>
-	 *                         <span class="zh-CN">前置查询结果集映射表</span>
-	 * @throws Exception <span class="en-US">An error occurred during execution</span>
-	 *                   <span class="zh-CN">执行过程中出错</span>
-	 */
-	private void query(final QueryStep queryStep, final Map<Long, List<Map<String, Object>>> subQueriesResult)
-			throws Exception {
-		subQueriesResult.put(queryStep.getStepCode(), this.dataSource.query(queryStep.getQueryInfo()));
-	}
-
-	/**
-	 * <h3 class="en-US">Execute data merge step</h3>
-	 * <h3 class="zh-CN">执行数据合并步骤</h3>
-	 *
-	 * @param mergeStep        <span class="en-US">Merge step instance object</span>
-	 *                         <span class="zh-CN">数据合并步骤实例对象</span>
-	 * @param subQueriesResult <span class="en-US">Pre-query result set mapping table</span>
-	 *                         <span class="zh-CN">前置查询结果集映射表</span>
-	 */
-	private void merge(final MergeStep mergeStep, final Map<Long, List<Map<String, Object>>> subQueriesResult) {
-		List<Map<String, Object>> mergeResults = new ArrayList<>();
-		List<Map<String, Object>> mainResults =
-				subQueriesResult.getOrDefault(mergeStep.getMainCode(), Collections.emptyList());
-		List<Map<String, Object>> childResults =
-				subQueriesResult.getOrDefault(mergeStep.getMergeCode(), Collections.emptyList());
-		for (Map<String, Object> mainResult : mainResults) {
-			for (Map<String, Object> childResult : childResults) {
-				if (mergeStep.getMappingKeys().entrySet().stream().allMatch(entry ->
-						ObjectUtils.nullSafeEquals(mainResult.get(entry.getKey()), childResult.get(entry.getValue())))) {
-					Map<String, Object> mergedResult = new HashMap<>(childResult);
-					mergedResult.putAll(mainResult);
-					mergeResults.add(mergedResult);
-				}
-			}
-		}
-		subQueriesResult.put(mergeStep.getStepCode(), mergeResults);
+	private int jdbcType(@Nonnull final Field field) {
+		return Optional.ofNullable(field.getAnnotation(Temporal.class))
+				.map(temporal -> {
+					switch (field.getAnnotation(Temporal.class).value()) {
+						case DATE:
+							return Types.DATE;
+						case TIME:
+							return Types.TIME;
+						case TIMESTAMP:
+							return Types.TIMESTAMP;
+						default:
+							return this.dataConvertMapping.get(field.getType());
+					}
+				})
+				.orElse(this.dataConvertMapping.get(field.getType()));
 	}
 
 	/**
@@ -1654,37 +1525,43 @@ public final class EntityFactory {
 	                                           final boolean primaryKey) {
 		return Optional.ofNullable(field.getAnnotation(Column.class))
 				.map(column -> {
-					int jdbcType = this.dataConvertMapping.get(field.getType());
-					String defaultValue =
-							Optional.ofNullable(ReflectionUtils.getFieldValue(field, object))
-									.map(fieldValue ->
-											dataSource.defaultValue(schemaName, jdbcType, column.length(),
-													column.precision(), column.scale(), fieldValue))
-									.orElse(Globals.DEFAULT_VALUE_STRING);
+					int jdbcType = this.jdbcType(field);
+					if (Date.class.equals(field.getType()) || Calendar.class.equals(field.getType())) {
+						switch (jdbcType) {
+							case Types.DATE:
+								LOGGER.warn("Date_Type_Warning",
+										"java.sql.Date", LocalDate.class.getName(), field.getType().getName());
+								break;
+							case Types.TIME:
+								LOGGER.warn("Date_Type_Warning",
+										"java.sql.Time", LocalTime.class.getName(), field.getType().getName());
+								break;
+							case Types.TIMESTAMP:
+								LOGGER.warn("Date_Type_Warning",
+										"java.sql.Timestamp", Instant.class.getName(), field.getType().getName());
+								break;
+						}
+					}
 					ColumnDefine columnDefine = new ColumnDefine();
 					columnDefine.setColumnName(StringUtils.isEmpty(column.name()) ? field.getName() : column.name());
 					columnDefine.setPrimaryKey(primaryKey);
-					columnDefine.setDefaultValue(defaultValue);
 					columnDefine.setUnique(column.unique());
 					columnDefine.setJdbcType(jdbcType);
 					columnDefine.setNullable(column.nullable());
 					columnDefine.setLength(column.length());
 					columnDefine.setPrecision(column.precision());
 					columnDefine.setScale(column.scale());
+					String defaultValue =
+							Optional.ofNullable(ReflectionUtils.getFieldValue(field, object))
+									.map(fieldValue ->
+											dataSource.defaultValue(schemaName, columnDefine, fieldValue))
+									.orElse(Globals.DEFAULT_VALUE_STRING);
+					columnDefine.setDefaultValue(defaultValue);
 					if (primaryKey) {
 						columnDefine.setUpdatable(Boolean.FALSE);
 					} else {
 						columnDefine.setUpdatable(column.updatable());
 					}
-					columnDefine.setVersion(field.isAnnotationPresent(Version.class));
-
-					Optional.ofNullable(field.getAnnotation(GeneratedData.class))
-							.ifPresent(generatedData -> {
-								GeneratorDefine generatorDefine = new GeneratorDefine();
-								generatorDefine.setGenerationType(generatedData.type());
-								generatorDefine.setGeneratorName(generatedData.generator());
-								columnDefine.setGeneratorDefine(generatorDefine);
-							});
 					return columnDefine;
 				});
 	}
@@ -1697,31 +1574,10 @@ public final class EntityFactory {
 	 * <span class="zh-CN">缓存客户端实例对象</span>
 	 */
 	private Optional<CacheClient> cacheClient() {
-		return Optional.ofNullable(
-				CacheUtils.client(CacheUtils.registered(BrainCommons.CACHE_NAME)
-						? BrainCommons.CACHE_NAME
-						: CacheGlobals.DEFAULT_CACHE_NAME));
-	}
-
-	/**
-	 * <h3 class="en-US">Get all non-static methods of a given class</h3>
-	 * <h3 class="zh-CN">获取给定类的所有非静态方法</h3>
-	 *
-	 * @param entityClass <span class="en-US">The given class</span>
-	 *                    <span class="zh-CN">给定类</span>
-	 * @return <span class="en-US">List of non-static methods</span>
-	 * <span class="zh-CN">非静态方法列表</span>
-	 */
-	private static List<Method> declaredMethods(@Nonnull final Class<?> entityClass) {
-		List<Method> fieldList = new ArrayList<>();
-		if (entityClass.isAnnotationPresent(Table.class) || entityClass.isAnnotationPresent(MappedSuperclass.class)) {
-			Optional.ofNullable(entityClass.getSuperclass())
-					.ifPresent(superClass -> fieldList.addAll(declaredMethods(superClass)));
-			Arrays.stream(entityClass.getDeclaredMethods())
-					.filter(method -> !Modifier.isStatic(method.getModifiers()))
-					.forEach(fieldList::add);
+		if (CacheUtils.registered(MagiGlobals.CACHE_NAME)) {
+			return Optional.ofNullable(CacheUtils.client(MagiGlobals.CACHE_NAME));
 		}
-		return fieldList;
+		return Optional.empty();
 	}
 
 	/**
@@ -1761,36 +1617,34 @@ public final class EntityFactory {
 		ReferenceType referenceType;
 		Class<?> referenceClass;
 		CascadeType[] cascadeType;
-		boolean lazyLoad;
 
 		if (member.isAnnotationPresent(OneToMany.class)) {
 			referenceType = ReferenceType.OneToMany;
 			OneToMany oneToMany = member.getAnnotation(OneToMany.class);
+			assert oneToMany != null;
 			referenceClass = oneToMany.targetEntity();
-			lazyLoad = FetchType.LAZY.equals(oneToMany.fetch());
 			cascadeType = oneToMany.cascade();
 		} else if (member.isAnnotationPresent(ManyToOne.class)) {
 			referenceType = ReferenceType.ManyToOne;
 			ManyToOne manyToOne = member.getAnnotation(ManyToOne.class);
+			assert manyToOne != null;
 			referenceClass = manyToOne.targetEntity();
-			lazyLoad = FetchType.LAZY.equals(manyToOne.fetch());
 			cascadeType = manyToOne.cascade();
 		} else if (member.isAnnotationPresent(OneToOne.class)) {
 			referenceType = ReferenceType.OneToOne;
 			OneToOne oneToOne = member.getAnnotation(OneToOne.class);
+			assert oneToOne != null;
 			referenceClass = oneToOne.targetEntity();
-			lazyLoad = FetchType.LAZY.equals(oneToOne.fetch());
 			cascadeType = oneToOne.cascade();
 		} else if (member.isAnnotationPresent(ManyToMany.class)) {
 			referenceType = ReferenceType.ManyToMany;
 			ManyToMany manyToMany = member.getAnnotation(ManyToMany.class);
+			assert manyToMany != null;
 			referenceClass = manyToMany.targetEntity();
-			lazyLoad = FetchType.LAZY.equals(manyToMany.fetch());
 			cascadeType = manyToMany.cascade();
 		} else {
 			referenceType = ReferenceType.Undefined;
 			referenceClass = void.class;
-			lazyLoad = Boolean.FALSE;
 			cascadeType = new CascadeType[0];
 		}
 
@@ -1826,8 +1680,138 @@ public final class EntityFactory {
 		if (StringUtils.isEmpty(fieldName) || void.class.equals(referenceClass)) {
 			return null;
 		}
-		return new ReferenceDefine<>(referenceType, referenceClass, fieldName, lazyLoad,
-				returnArray, cascadeType, joinColumns(member));
+		return new ReferenceDefine<>(referenceType, referenceClass, fieldName,
+				returnArray, cascadeType, member.getAnnotationsByType(JoinColumn.class));
+	}
+
+	@Nonnull
+	private List<String> identifyCodes(@Nonnull final AbstractQuery abstractQuery) {
+		Set<String> identifyCodes = new HashSet<>();
+		QueryFrom queryFrom = abstractQuery.getQueryFrom();
+		if (queryFrom instanceof FromTable) {
+			identifyCodes.add(((FromTable) queryFrom).getTableName());
+		} else if (queryFrom instanceof FromSubQuery) {
+			identifyCodes.addAll(this.identifyCodes(((FromSubQuery) queryFrom).getQueryData()));
+		}
+		List<QueryItem> itemList = new ArrayList<>();
+		switch (abstractQuery.getQueryType()) {
+			case NORMAL:
+				itemList.addAll(((QueryInfo) abstractQuery).getItemList());
+				break;
+			case TABLE:
+				itemList.addAll(((TableSubQuery) abstractQuery).getItemList());
+				break;
+			case SCALAR:
+				itemList.add(((ScalarSubQuery) abstractQuery).getQueryItem());
+				break;
+		}
+		itemList.forEach(queryItem -> identifyCodes.addAll(this.identifyCodes(queryItem)));
+		abstractQuery.getQueryJoins().forEach(queryJoin ->
+				identifyCodes.addAll(this.identifyCodes(queryJoin)));
+		abstractQuery.getConditionList().forEach(condition ->
+				identifyCodes.addAll(this.identifyCodes(condition)));
+		abstractQuery.getHavingList().forEach(condition ->
+				identifyCodes.addAll(this.identifyCodes(condition)));
+		return new ArrayList<>(identifyCodes);
+	}
+
+	@Nonnull
+	private List<String> identifyCodes(final QueryItem queryItem) {
+		if (queryItem instanceof ColumnItem) {
+			return List.of(((ColumnItem) queryItem).getTableName());
+		} else if (queryItem instanceof FunctionItem) {
+			Set<String> identifyCodes = new HashSet<>();
+			((FunctionItem) queryItem).getFunctionParams()
+					.forEach(abstractParameter ->
+							identifyCodes.addAll(this.identifyCodes(abstractParameter)));
+			return new ArrayList<>(identifyCodes);
+		} else if (queryItem instanceof SubQueryItem) {
+			return this.identifyCodes(((SubQueryItem) queryItem).getQueryData());
+		}
+		return Collections.emptyList();
+	}
+
+	@Nonnull
+	private List<String> identifyCodes(final QueryJoin queryJoin) {
+		if (queryJoin instanceof TableQueryJoin) {
+			return List.of(((TableQueryJoin) queryJoin).getJoinTable());
+		} else if (queryJoin instanceof SubQueryJoin) {
+			return this.identifyCodes(((SubQueryJoin) queryJoin).getSubQuery());
+		}
+		return Collections.emptyList();
+	}
+
+	@Nonnull
+	private List<String> identifyCodes(final AbstractParameter<?> functionParam) {
+		Set<String> identifyCodes = new HashSet<>();
+		if (functionParam instanceof CalculateParameter) {
+			((CalculateParameter) functionParam).getItemValue()
+					.getCalculateItems()
+					.forEach(queryItem -> identifyCodes.addAll(this.identifyCodes(queryItem)));
+		} else if (functionParam instanceof ColumnParameter) {
+			identifyCodes.add(((ColumnParameter) functionParam).getItemValue().getTableName());
+		} else if (functionParam instanceof FunctionParameter) {
+			((FunctionParameter) functionParam).getItemValue().getFunctionParams()
+					.forEach(abstractParameter ->
+							identifyCodes.addAll(this.identifyCodes(abstractParameter)));
+		} else if (functionParam instanceof QueryParameter) {
+			identifyCodes.addAll(this.identifyCodes(((QueryParameter) functionParam).getItemValue()));
+		}
+		return new ArrayList<>(identifyCodes);
+	}
+
+	@Nonnull
+	private List<String> identifyCodes(final Condition condition) {
+		Set<String> identifyCodes = new HashSet<>();
+		if (condition instanceof ColumnCondition) {
+			return this.identifyCodes(((ColumnCondition) condition).getConditionParameter());
+		} else if (condition instanceof GroupCondition) {
+			((GroupCondition) condition).getConditionList()
+					.forEach(itemCondition -> identifyCodes.addAll(this.identifyCodes(itemCondition)));
+		}
+		return new ArrayList<>(identifyCodes);
+	}
+
+	private static boolean lazyLoad(@Nonnull final Class<?> entityClass, @Nonnull final Field field) {
+		if (field.isAnnotationPresent(Id.class) || field.isAnnotationPresent(EmbeddedId.class)) {
+			return Boolean.FALSE;
+		}
+		FetchType fetchType = null;
+		if (referenceMember(field)) {
+			fetchType = referenceFetchType(field);
+			if (fetchType == null) {
+				fetchType = referenceFetchType(ReflectionUtils.getterMethod(field.getName(), entityClass));
+			}
+		} else if (field.isAnnotationPresent(Column.class) && field.isAnnotationPresent(Lob.class)) {
+			fetchType = columnFetchType(field);
+			if (fetchType == null) {
+				fetchType = columnFetchType(ReflectionUtils.getterMethod(field.getName(), entityClass));
+			}
+		}
+		return FetchType.LAZY.equals(fetchType);
+	}
+
+	private static FetchType referenceFetchType(final AccessibleObject member) {
+		if (member.isAnnotationPresent(OneToMany.class)) {
+			return member.getAnnotation(OneToMany.class).fetch();
+		}
+		if (member.isAnnotationPresent(ManyToOne.class)) {
+			return member.getAnnotation(ManyToOne.class).fetch();
+		}
+		if (member.isAnnotationPresent(OneToOne.class)) {
+			return member.getAnnotation(OneToOne.class).fetch();
+		}
+		if (member.isAnnotationPresent(ManyToMany.class)) {
+			return member.getAnnotation(ManyToMany.class).fetch();
+		}
+		return null;
+	}
+
+	private static FetchType columnFetchType(final AccessibleObject member) {
+		if (member.isAnnotationPresent(Basic.class)) {
+			return member.getAnnotation(Basic.class).fetch();
+		}
+		return null;
 	}
 
 	/**
@@ -2029,6 +2013,14 @@ public final class EntityFactory {
 		 * <span class="zh-CN">删除选项</span>
 		 */
 		private final DropOption dropOption;
+		/**
+		 * <span class="en-US">Lock option</span>
+		 * <span class="zh-CN">数据锁选项</span>
+		 */
+		private final LockModeType lockOption;
+		private final Map<String, Class<?>> fieldTypes = new HashMap<>();
+		private String versionField = Globals.DEFAULT_VALUE_STRING;
+		private final List<String> lazyLoadFields;
 
 		/**
 		 * <h3 class="en-US">Constructor method for entity class define information</h3>
@@ -2044,9 +2036,24 @@ public final class EntityFactory {
 			if (!entityClass.isAnnotationPresent(Table.class)) {
 				throw new MultilingualSQLException(0x00DB00010002L);
 			}
-			Table table = entityClass.getAnnotation(Table.class);
-			Options options = entityClass.getAnnotation(Options.class);
 
+			Options options = entityClass.getAnnotation(Options.class);
+			this.columnFieldMapping = new Hashtable<>();
+			StrategyDefine databaseStrategy = null;
+			StrategyDefine tableStrategy = null;
+			if (options == null) {
+				this.dropOption = DropOption.NONE;
+				this.lockOption = LockModeType.NONE;
+				this.cacheable = Boolean.TRUE;
+			} else {
+				this.dropOption = options.dropOption();
+				databaseStrategy = this.strategyDefine(options.databaseSharding());
+				tableStrategy = this.strategyDefine(options.tableSharding());
+				this.lockOption = options.lockOption();
+				this.cacheable = options.cacheable();
+			}
+
+			Table table = entityClass.getAnnotation(Table.class);
 			String schemaName;
 			DialectType dialectType;
 			Schema schema = entityClass.getAnnotation(Schema.class);
@@ -2066,12 +2073,11 @@ public final class EntityFactory {
 
 			List<ColumnDefine> columnDefineList = new ArrayList<>();
 			this.referenceDefineList = new ArrayList<>();
+			this.lazyLoadFields = new ArrayList<>();
 
-			this.columnFieldMapping = new Hashtable<>();
 			this.fieldColumnMapping = new Hashtable<>();
 			this.transferColumns = new ArrayList<>();
 			this.sensitiveDefines = new ArrayList<>();
-			Map<String, Class<?>> fieldTypeMapping = new HashMap<>();
 			Object object = ObjectUtils.newInstance(entityClass);
 			PrimaryKeyConfig primaryKeyConfig = null;
 			for (Field field : EntityFactory.declaredFields(entityClass)) {
@@ -2085,8 +2091,11 @@ public final class EntityFactory {
 					entityFactory.newInstance(table.schema(), field, object, field.isAnnotationPresent(Id.class))
 							.ifPresent(columnDefine -> {
 								columnDefineList.add(columnDefine);
-								fieldTypeMapping.put(field.getName(), field.getType());
 								this.registerColumn(columnDefine, field);
+								this.fieldTypes.put(field.getName(), field.getType());
+								if (EntityFactory.lazyLoad(entityClass, field)) {
+									this.lazyLoadFields.add(field.getName());
+								}
 							});
 				} else if (field.isAnnotationPresent(EmbeddedId.class)) {
 					if (primaryKeyConfig != null) {
@@ -2098,19 +2107,18 @@ public final class EntityFactory {
 						entityFactory.newInstance(table.schema(), pkField, compositeId, Boolean.TRUE)
 								.ifPresent(columnDefine -> {
 									columnDefineList.add(columnDefine);
-									fieldTypeMapping.put(pkField.getName(), pkField.getType());
+									this.fieldTypes.put(pkField.getName(), pkField.getType());
 									this.registerColumn(columnDefine, pkField);
 								});
 					}
 				} else if (EntityFactory.referenceMember(field)) {
-					Optional.ofNullable(EntityFactory.referenceDefine(field)).ifPresent(referenceDefineList::add);
-				}
-			}
-
-			for (Method method : EntityFactory.declaredMethods(entityClass)) {
-				if (EntityFactory.referenceMember(method)
-						&& (method.getName().startsWith("get") || method.getName().startsWith("is"))) {
-					Optional.ofNullable(EntityFactory.referenceDefine(method)).ifPresent(referenceDefineList::add);
+					Optional.ofNullable(EntityFactory.referenceDefine(field))
+							.ifPresent(referenceDefine -> {
+								referenceDefineList.add(referenceDefine);
+								if (EntityFactory.lazyLoad(entityClass, field)) {
+									this.lazyLoadFields.add(field.getName());
+								}
+							});
 				}
 			}
 
@@ -2146,45 +2154,29 @@ public final class EntityFactory {
 			this.tableDefine.setTableName(tableName);
 			this.tableDefine.setColumnDefines(columnDefineList);
 			this.tableDefine.setIndexDefines(indexDefineList);
-			ShardingDefine<?> shardingDatabase = null;
-			ShardingDefine<?> shardingTable = null;
-			if (options == null) {
-				this.dropOption = DropOption.NONE;
-				this.tableDefine.setLockOption(LockModeType.NONE);
-				this.cacheable = Boolean.TRUE;
-			} else {
-				this.dropOption = options.dropOption();
-				shardingDatabase = Optional.of(options.databaseSharding())
-						.filter(sharding -> !Calculator.class.equals(sharding.calculatorClass()))
-						.filter(sharding -> this.columnFieldMapping.containsKey(sharding.column()))
-						.map(sharding -> {
-							String fieldName = this.columnFieldMapping.get(sharding.column());
-							if (fieldTypeMapping.containsKey(fieldName)) {
-								return new ShardingDefine<>(sharding.value(), sharding.column(),
-										sharding.template(), sharding.calculatorClass(),
-										fieldTypeMapping.get(fieldName));
-							}
-							return null;
-						})
-						.orElse(null);
-				shardingTable = Optional.of(options.tableSharding())
-						.filter(sharding -> !Calculator.class.equals(sharding.calculatorClass()))
-						.filter(sharding -> this.columnFieldMapping.containsKey(sharding.column()))
-						.map(sharding -> {
-							String fieldName = this.columnFieldMapping.get(sharding.column());
-							if (fieldTypeMapping.containsKey(fieldName)) {
-								return new ShardingDefine<>(sharding.value(), sharding.column(),
-										sharding.template(), sharding.calculatorClass(),
-										fieldTypeMapping.get(fieldName));
-							}
-							return null;
-						})
-						.orElse(null);
-				this.tableDefine.setLockOption(options.lockOption());
-				this.cacheable = options.cacheable();
-			}
 
-			entityFactory.dataSource.initTable(this.tableDefine, shardingDatabase, shardingTable);
+			entityFactory.dataSource.initTable(this.tableDefine, databaseStrategy, tableStrategy);
+		}
+
+		private StrategyDefine strategyDefine(@Nonnull final Sharding sharding) {
+			if (!Calculator.class.equals(sharding.calculatorClass()) && sharding.columns().length > 0
+					&& Stream.of(sharding.columns()).allMatch(this.columnFieldMapping::containsKey)) {
+				List<StrategyField> strategyFields = new ArrayList<>();
+				int index = Globals.INITIALIZE_INT_VALUE;
+				for (String column : sharding.columns()) {
+					StrategyField strategyField = new StrategyField();
+					strategyField.setSortCode(index);
+					strategyField.setFieldName(column);
+					strategyFields.add(strategyField);
+					index++;
+				}
+				StrategyDefine strategyDefine = new StrategyDefine();
+				strategyDefine.setDefaultValue(sharding.value());
+				strategyDefine.setStrategyFields(strategyFields);
+				strategyDefine.setCalculatorClass(sharding.calculatorClass().getName());
+				return strategyDefine;
+			}
+			return null;
 		}
 
 		/**
@@ -2210,32 +2202,60 @@ public final class EntityFactory {
 					});
 			Optional.ofNullable(field.getAnnotation(Sensitive.class))
 					.ifPresent(sensitive -> this.sensitiveDefines.add(new SensitiveDefine(field.getName(), sensitive)));
+			if (field.isAnnotationPresent(Version.class) && Integer.class.equals(field.getType())) {
+				this.versionField = field.getName();
+			}
+
+			Optional.ofNullable(field.getAnnotation(GeneratedData.class))
+					.ifPresent(generatedData -> {
+						columnDefine.setGenerationType(generatedData.type());
+						columnDefine.setGeneratorName(generatedData.generator());
+					});
+			Optional.ofNullable(field.getAnnotation(HistoriesNames.class))
+					.ifPresent(historiesNames ->
+							columnDefine.setHistoriesNames(Arrays.asList(historiesNames.value())));
+		}
+
+		private boolean optimisticLock() {
+			return LockModeType.OPTIMISTIC.equals(this.lockOption)
+					|| LockModeType.OPTIMISTIC_FORCE_INCREMENT.equals(this.lockOption);
 		}
 
 		/**
-		 * <h3 class="en-US">Generate cache unique identifier</h3>
-		 * <h3 class="zh-CN">生成缓存唯一识别码</h3>
+		 * <h3 class="en-US">Data table unique identifier</h3>
+		 * <h3 class="zh-CN">数据表唯一识别码</h3>
+		 *
+		 * @return <span class="en-US">Unique identifier</span>
+		 * <span class="zh-CN">唯一识别代码</span>
+		 */
+		String identifier() {
+			return StringUtils.base64Encode(SecurityUtils.SHA256(this.tableDefine.getTableName()));
+		}
+
+		/**
+		 * <h3 class="en-US">Generate unique identifier</h3>
+		 * <h3 class="zh-CN">生成唯一识别码</h3>
 		 *
 		 * @param object <span class="en-US">Entity classes instance object</span>
 		 *               <span class="zh-CN">实体类实例对象</span>
 		 * @return <span class="en-US">Unique identifier</span>
 		 * <span class="zh-CN">唯一识别代码</span>
 		 */
-		String cacheKey(@Nonnull final BaseObject object) {
-			return this.cacheKey(this.dataMap(object, ColumnDefine::isPrimaryKey));
+		String identifier(@Nonnull final BaseObject object) throws SQLException {
+			return this.identifier(this.filterMap(object));
 		}
 
 		/**
-		 * <h3 class="en-US">Generate cache unique identifier</h3>
-		 * <h3 class="zh-CN">生成缓存唯一识别码</h3>
+		 * <h3 class="en-US">Generate unique identifier</h3>
+		 * <h3 class="zh-CN">生成唯一识别码</h3>
 		 *
 		 * @param filterMap <span class="en-US">Data mapping table</span>
 		 *                  <span class="zh-CN">数据映射表</span>
 		 * @return <span class="en-US">Unique identifier</span>
 		 * <span class="zh-CN">唯一识别代码</span>
 		 */
-		String cacheKey(final Map<String, Object> filterMap) {
-			return ConvertUtils.toHex(SecurityUtils.SHA256(new TreeMap<>(filterMap)));
+		String identifier(final TreeMap<String, Object> filterMap) {
+			return SecurityUtils.SHA256(filterMap, EncodeType.HEX);
 		}
 
 		/**
@@ -2250,6 +2270,23 @@ public final class EntityFactory {
 		}
 
 		/**
+		 * <h3 class="en-US">Get the JDBC type code of the data column in the registration data table</h3>
+		 * <h3 class="zh-CN">获取注册数据表中数据列的JDBC类型代码</h3>
+		 *
+		 * @param identifyCode <span class="en-US">Data column identify code</span>
+		 *                     <span class="zh-CN">数据列识别代码</span>
+		 * @return <span class="en-US">JDBC type code</span>
+		 * <span class="zh-CN">JDBC类型代码</span>
+		 * @throws SQLException <span class="en-US">The data table is not registered or data column not exists</span>
+		 *                      <span class="zh-CN">数据表未注册或数据列不存在</span>
+		 */
+		public int jdbcType(@Nonnull final String identifyCode) throws SQLException {
+			return Optional.ofNullable(this.tableDefine.column(identifyCode))
+					.map(ColumnDefine::getJdbcType)
+					.orElseThrow(() -> new MultilingualSQLException(0x00DB00000011L));
+		}
+
+		/**
 		 * <h3 class="en-US">Getter method for table defines information</h3>
 		 * <h3 class="zh-CN">数据表定义信息的Getter方法</h3>
 		 *
@@ -2260,8 +2297,28 @@ public final class EntityFactory {
 			return this.tableDefine;
 		}
 
+		public String fieldName(final String identifyName) {
+			return this.columnFieldMapping.getOrDefault(identifyName, identifyName);
+		}
+
+		public List<ColumnDefine> queryColumns() {
+			return this.tableDefine.getColumnDefines()
+					.stream()
+					.filter(columnDefine ->
+							!this.lazyLoadFields.contains(this.columnFieldMapping.get(columnDefine.getColumnName())))
+					.collect(Collectors.toList());
+		}
+
+		public List<ReferenceDefine<?>> queryReferences() {
+			return this.referenceDefineList
+					.stream()
+					.filter(referenceDefine ->
+							!this.lazyLoadFields.contains(referenceDefine.getFieldName()))
+					.collect(Collectors.toList());
+		}
+
 		/**
-		 * <h3 class="en-US">Getter method for data column transmission configuration information list</h3>
+		 * <h3 class="en-US">Getter method for the data column transmission configuration information list</h3>
 		 * <h3 class="zh-CN">数据列传输配置信息列表的Getter方法</h3>
 		 *
 		 * @return <span class="en-US">Data column transmission configuration information list</span>
@@ -2294,6 +2351,17 @@ public final class EntityFactory {
 		}
 
 		/**
+		 * <h3 class="en-US">Getter method for the lock option</h3>
+		 * <h3 class="zh-CN">数据锁选项的Getter方法</h3>
+		 *
+		 * @return <span class="en-US">Lock option</span>
+		 * <span class="zh-CN">数据锁选项</span>
+		 */
+		LockModeType getLockOption() {
+			return this.lockOption;
+		}
+
+		/**
 		 * <h3 class="en-US">The current data table contains lazy loading attributes</h3>
 		 * <h3 class="zh-CN">当前数据表包含懒加载属性</h3>
 		 *
@@ -2301,8 +2369,7 @@ public final class EntityFactory {
 		 * <span class="zh-CN">检查结果</span>
 		 */
 		boolean containsLazyLoadField() {
-			return this.tableDefine.getColumnDefines().stream().anyMatch(ColumnDefine::isLazyLoad)
-					|| this.referenceDefineList.stream().anyMatch(ReferenceDefine::isLazyLoad);
+			return !this.lazyLoadFields.isEmpty();
 		}
 
 		/**
@@ -2316,7 +2383,7 @@ public final class EntityFactory {
 		 * @param value     <span class="en-US">Field value</span>
 		 *                  <span class="zh-CN">属性值</span>
 		 */
-		private void writeFieldValue(final BaseObject object, final String fieldName, final Object value) {
+		private void writeFieldValue(final Object object, final String fieldName, final Object value) {
 			if (value == null) {
 				return;
 			}
@@ -2341,7 +2408,7 @@ public final class EntityFactory {
 		 * @return <span class="en-US">Field value</span>
 		 * <span class="zh-CN">属性值</span>
 		 */
-		public Object readFieldValue(final BaseObject object, final String identifyName) {
+		public Object readFieldValue(final Object object, final String identifyName) {
 			String fieldName = this.columnFieldMapping.getOrDefault(identifyName, identifyName);
 			if (this.primaryKey(fieldName)) {
 				Object primaryKey = object;
@@ -2358,22 +2425,32 @@ public final class EntityFactory {
 		 * <h3 class="en-US">Read sensitive data</h3>
 		 * <h3 class="zh-CN">读取敏感信息</h3>
 		 *
-		 * @param object       <span class="en-US">Entity classes instance object</span>
-		 *                     <span class="zh-CN">实体类实例对象</span>
-		 * @param identifyName <span class="en-US">Field name</span>
-		 *                     <span class="zh-CN">属性名</span>
-		 * @return <span class="en-US">Field value</span>
-		 * <span class="zh-CN">属性值</span>
+		 * @param object   <span class="en-US">Entity classes instance object</span>
+		 *                 <span class="zh-CN">实体类实例对象</span>
+		 * @param userCode <span class="en-US">Identify code of the reader</span>
+		 *                 <span class="zh-CN">读取人的识别代码</span>
 		 */
-		public String sensitiveData(final BaseObject object, final String identifyName) {
-			String fieldName = this.columnFieldMapping.getOrDefault(identifyName, identifyName);
-			return this.sensitiveDefines.stream()
-					.filter(sensitiveDefine -> sensitiveDefine.match(fieldName))
-					.findFirst()
-					.map(sensitiveDefine -> sensitiveDefine.sensitiveData(object))
-					.orElse((String) ReflectionUtils.getFieldValue(fieldName, object));
+		private void sensitiveData(@Nonnull final Object object, @Nonnull final String userCode) {
+			if (this.sensitiveDefines.isEmpty()) {
+				return;
+			}
+			this.sensitiveDefines.forEach(sensitiveDefine -> sensitiveDefine.sensitiveData(object));
+			if (INSTANCE.sensitiveTracker != null) {
+				INSTANCE.sensitiveTracker.track(ClassUtils.originalClassName(object.getClass()),
+						BeanUtils.objectToString(this.primaryKeyMap(object), StringType.JSON),
+						userCode);
+			}
 		}
 
+		/**
+		 * <h3 class="en-US">Check weather the given field name is the primary key</h3>
+		 * <h3 class="zh-CN">检查给定的属性名是否为主键</h3>
+		 *
+		 * @param fieldName <span class="en-US">Field name</span>
+		 *                  <span class="zh-CN">属性名</span>
+		 * @return <span class="en-US">Check result</span>
+		 * <span class="zh-CN">检查结果</span>
+		 */
 		private boolean primaryKey(final String fieldName) {
 			return Optional.ofNullable(this.columnName(fieldName))
 					.filter(StringUtils::notBlank)
@@ -2391,7 +2468,7 @@ public final class EntityFactory {
 		 * @param primaryKeyMap <span class="en-US">Primary key value mapping table generated by database</span>
 		 *                      <span class="zh-CN">数据库生成的主键值映射表</span>
 		 */
-		private void primaryKey(final BaseObject object, final Map<String, Object> primaryKeyMap) {
+		private void primaryKey(final Object object, final Map<String, Object> primaryKeyMap) {
 			Object primaryKey;
 			if (this.primaryKeyConfig.isCompositeId()) {
 				primaryKey =
@@ -2427,41 +2504,48 @@ public final class EntityFactory {
 		 */
 		private Map<String, Object> dataMap(@Nonnull final BaseObject object) {
 			Map<String, Object> dataMap = new HashMap<>();
+			if (this.optimisticLock() && StringUtils.notBlank(this.versionField)) {
+				if (ReflectionUtils.getFieldValue(this.versionField, object) == null) {
+					ReflectionUtils.setField(this.versionField, object, Globals.INITIALIZE_INT_VALUE);
+				}
+			}
 			this.tableDefine.getColumnDefines()
 					.forEach(columnDefine ->
-							Optional.ofNullable(this.readFieldValue(object,
-											this.columnFieldMapping.get(columnDefine.getColumnName())))
+							Optional.ofNullable(this.readFieldValue(object, columnDefine.getColumnName()))
+									.map(fieldValue -> this.convertValue(columnDefine, fieldValue))
 									.ifPresent(fieldValue ->
-											dataMap.put(columnDefine.getColumnName(),
-													this.convertValue(columnDefine.getJdbcType(),
-															columnDefine.getScale(), fieldValue))));
+											dataMap.put(columnDefine.getColumnName(), fieldValue)));
 			return dataMap;
 		}
 
 		/**
-		 * <h3 class="en-US">Get the primary key data mapping table</h3>
-		 * <h3 class="zh-CN">获取主键数据映射表</h3>
+		 * <h3 class="en-US">Get the update data mapping table</h3>
+		 * <h3 class="zh-CN">获取更新数据映射表</h3>
 		 *
-		 * @param object    <span class="en-US">Instance object that reads attribute data</span>
-		 *                  <span class="zh-CN">读取属性数据的实例对象</span>
-		 * @param predicate <span class="en-US">Filter conditions for reading attributes</span>
-		 *                  <span class="zh-CN">读取属性的过滤条件</span>
+		 * @param object <span class="en-US">Instance object that reads attribute data</span>
+		 *               <span class="zh-CN">读取属性数据的实例对象</span>
 		 * @return <span class="en-US">Converted data mapping table</span>
 		 * <span class="zh-CN">转换后的数据映射表</span>
 		 */
-		private Map<String, Object> dataMap(@Nonnull final BaseObject object,
-		                                    final Predicate<? super ColumnDefine> predicate) {
+		private Map<String, Object> updateMap(@Nonnull final BaseObject object) throws SQLException {
 			Map<String, Object> retrieveMap = new HashMap<>();
 			this.tableDefine.getColumnDefines()
 					.stream()
-					.filter(predicate)
+					.filter(ColumnDefine::isUpdatable)
 					.forEach(columnDefine ->
-							Optional.ofNullable(this.readFieldValue(object,
-											this.columnFieldMapping.get(columnDefine.getColumnName())))
-									.ifPresent(fieldValue ->
-											retrieveMap.put(columnDefine.getColumnName(),
-													this.convertValue(columnDefine.getJdbcType(),
-															columnDefine.getScale(), fieldValue))));
+							Optional.ofNullable(this.readFieldValue(object, columnDefine.getColumnName()))
+									.map(fieldValue -> this.convertValue(columnDefine, fieldValue))
+									.ifPresent(fieldValue -> retrieveMap.put(columnDefine.getColumnName(), fieldValue)));
+			if (this.optimisticLock() && StringUtils.notBlank(this.versionField)) {
+				ColumnDefine columnDefine = this.tableDefine.column(this.versionField);
+				Object fieldValue = this.readFieldValue(object, this.versionField);
+				if (fieldValue == null) {
+					throw new MultilingualSQLException(0x00DB00010021L);
+				}
+				fieldValue = ((Integer) fieldValue) + 1;
+				retrieveMap.put(columnDefine.getColumnName(), this.convertValue(columnDefine, fieldValue));
+				ReflectionUtils.setField(this.versionField, object, fieldValue);
+			}
 			return retrieveMap;
 		}
 
@@ -2469,34 +2553,41 @@ public final class EntityFactory {
 		 * <h3 class="en-US">Convert Java data types to SQL data types</h3>
 		 * <h3 class="zh-CN">转换Java数据类型为SQL数据类型</h3>
 		 *
-		 * @param jdbcType   <span class="en-US">JDBC data type code</span>
-		 *                   <span class="zh-CN">JDBC数据类型代码</span>
-		 * @param scale      <span class="en-US">Data column scale</span>
-		 *                   <span class="zh-CN">数据列小数位数</span>
-		 * @param fieldValue <span class="en-US">Data that needs to be converted</span>
-		 *                   <span class="zh-CN">需要转换的数据</span>
+		 * @param columnDefine <span class="en-US">Data column configure information</span>
+		 *                     <span class="zh-CN">数据列配置信息</span>
+		 * @param fieldValue   <span class="en-US">Data that needs to be converted</span>
+		 *                     <span class="zh-CN">需要转换的数据</span>
 		 * @return <span class="en-US">Converted data</span>
 		 * <span class="zh-CN">转换后的数据</span>
 		 */
-		private Object convertValue(final int jdbcType, final int scale, @Nonnull final Object fieldValue) {
-			switch (jdbcType) {
+		private Object convertValue(final ColumnDefine columnDefine, @Nonnull final Object fieldValue) {
+			switch (columnDefine.getJdbcType()) {
 				case Types.DATE:
-					long dateLong = ((Date) fieldValue).getTime();
-					return new java.sql.Date(dateLong);
-				case Types.TIME:
-					long timeLong = ((Date) fieldValue).getTime();
-					return new java.sql.Time(timeLong);
-				case Types.TIMESTAMP:
-					long timestamp = ((Date) fieldValue).getTime();
-					return new java.sql.Timestamp(timestamp);
-				case Types.DECIMAL:
-					return ((BigDecimal) fieldValue).setScale(scale, RoundingMode.HALF_UP);
-				case Types.BLOB:
-					if (fieldValue instanceof BeanObject) {
-						return ConvertUtils.toByteArray(fieldValue.toString());
+					if (fieldValue instanceof LocalDate) {
+						return java.sql.Date.valueOf((LocalDate) fieldValue);
 					} else {
-						return ConvertUtils.toByteArray(fieldValue);
+						return new java.sql.Date(((Date) fieldValue).getTime());
 					}
+				case Types.TIME:
+					if (fieldValue instanceof LocalTime) {
+						return java.sql.Time.valueOf((LocalTime) fieldValue);
+					} else {
+						return new java.sql.Time(((Date) fieldValue).getTime());
+					}
+				case Types.TIMESTAMP:
+					if (fieldValue instanceof LocalDateTime) {
+						return java.sql.Timestamp.valueOf((LocalDateTime) fieldValue);
+					} else if (fieldValue instanceof Calendar) {
+						return new java.sql.Timestamp(((Calendar) fieldValue).getTimeInMillis());
+					} else if (fieldValue instanceof Instant) {
+						return new java.sql.Timestamp(((Instant) fieldValue).toEpochMilli());
+					} else {
+						return new java.sql.Timestamp(((Date) fieldValue).getTime());
+					}
+				case Types.DECIMAL:
+					return ((BigDecimal) fieldValue).setScale(columnDefine.getScale(), RoundingMode.HALF_UP);
+				case Types.BLOB:
+					return ConvertUtils.toByteArray(fieldValue);
 				case Types.CLOB:
 					try {
 						if (fieldValue instanceof String) {
@@ -2521,6 +2612,32 @@ public final class EntityFactory {
 			}
 		}
 
+		private TreeMap<String, Object> primaryKeyMap(@Nonnull final Object object) {
+			TreeMap<String, Object> retrieveMap = new TreeMap<>();
+			if (object instanceof CompositeId) {
+				this.tableDefine.getColumnDefines()
+						.stream()
+						.filter(ColumnDefine::isPrimaryKey)
+						.forEach(columnDefine -> {
+							String fieldName = this.columnFieldMapping.getOrDefault(columnDefine.getColumnName(), columnDefine.getColumnName());
+							Object fieldValue = ReflectionUtils.getFieldValue(fieldName, object);
+							if (fieldValue != null) {
+								retrieveMap.put(columnDefine.getColumnName(), this.convertValue(columnDefine, fieldValue));
+							}
+						});
+			} else {
+				this.tableDefine.getColumnDefines()
+						.stream()
+						.filter(ColumnDefine::isPrimaryKey)
+						.findFirst()
+						.ifPresent(columnDefine ->
+								Optional.ofNullable(this.convertValue(columnDefine, object))
+										.ifPresent(fieldValue ->
+												retrieveMap.put(columnDefine.getColumnName(), fieldValue)));
+			}
+			return retrieveMap;
+		}
+
 		/**
 		 * <h3 class="en-US">Get the primary key data mapping table</h3>
 		 * <h3 class="zh-CN">获取主键数据映射表</h3>
@@ -2530,27 +2647,22 @@ public final class EntityFactory {
 		 * @return <span class="en-US">Converted data mapping table</span>
 		 * <span class="zh-CN">转换后的数据映射表</span>
 		 */
-		private Map<String, Object> filterMap(@Nonnull final Serializable object) {
-			Map<String, Object> retrieveMap = new HashMap<>();
-			if (this.primaryKeyConfig.isCompositeId()) {
-				this.tableDefine.getColumnDefines()
-						.stream()
-						.filter(ColumnDefine::isPrimaryKey)
-						.forEach(columnDefine -> {
-							String fieldName = this.columnFieldMapping.get(columnDefine.getColumnName());
-							Optional.ofNullable(ReflectionUtils.getFieldValue(fieldName, object))
+		private TreeMap<String, Object> filterMap(@Nonnull final BaseObject object) throws SQLException {
+			TreeMap<String, Object> retrieveMap = new TreeMap<>();
+			this.tableDefine.getColumnDefines()
+					.stream()
+					.filter(ColumnDefine::isPrimaryKey)
+					.forEach(columnDefine ->
+							Optional.ofNullable(this.readFieldValue(object, columnDefine.getColumnName()))
+									.map(fieldValue -> this.convertValue(columnDefine, fieldValue))
 									.ifPresent(fieldValue ->
-											retrieveMap.put(columnDefine.getColumnName(),
-													this.convertValue(columnDefine.getJdbcType(),
-															columnDefine.getScale(), fieldValue)));
-						});
-			} else {
-				this.tableDefine.getColumnDefines()
-						.stream()
-						.filter(ColumnDefine::isPrimaryKey)
-						.findFirst()
-						.ifPresent(columnDefine -> retrieveMap.put(columnDefine.getColumnName(),
-								this.convertValue(columnDefine.getJdbcType(), columnDefine.getScale(), object)));
+											retrieveMap.put(columnDefine.getColumnName(), fieldValue)));
+			if (this.optimisticLock() && !(object instanceof CompositeId) && StringUtils.notBlank(this.versionField)) {
+				ColumnDefine columnDefine = this.tableDefine.column(this.versionField);
+				Object fieldValue = Optional.ofNullable(this.readFieldValue(object, this.versionField))
+						.map(value -> this.convertValue(columnDefine, value))
+						.orElseThrow(() -> new MultilingualSQLException(0x00DB00010021L));
+				retrieveMap.put(columnDefine.getColumnName(), fieldValue);
 			}
 			return retrieveMap;
 		}
@@ -2566,15 +2678,48 @@ public final class EntityFactory {
 		 */
 		private void generateKey(final BaseObject object, final EntityFactory entityFactory) {
 			this.tableDefine.getColumnDefines()
-					.forEach(columnDefine ->
-							Optional.ofNullable(columnDefine.getGeneratorDefine())
-									.filter(generatorDefine ->
-											GenerationType.GENERATE.equals(generatorDefine.getGenerationType()))
-									.ifPresent(generatorDefine -> {
-										String fieldName = this.columnFieldMapping.get(columnDefine.getColumnName());
-										ReflectionUtils.setField(fieldName, object,
-												IDUtils.generate(generatorDefine.getGeneratorName(), new byte[0]));
-									}));
+					.forEach(columnDefine -> {
+						String fieldName = this.columnFieldMapping.get(columnDefine.getColumnName());
+						Object fieldValue = null;
+						Class<?> fieldType = this.fieldTypes.get(fieldName);
+						switch (columnDefine.getGenerationType()) {
+							case GENERATE:
+								fieldValue = IDUtils.generate(columnDefine.getGeneratorName(), new byte[0]);
+								if (fieldValue instanceof UUID || fieldValue instanceof ULID
+										|| fieldValue instanceof CUID) {
+									fieldValue = fieldValue.toString();
+								}
+								break;
+							case CURRENT_DATE:
+								if (LocalDate.class.equals(fieldType)) {
+									fieldValue = LocalDate.now();
+								} else {
+									fieldValue = new Date();
+								}
+								break;
+							case CURRENT_TIME:
+								if (LocalTime.class.equals(fieldType)) {
+									fieldValue = LocalTime.now();
+								} else {
+									fieldValue = new Date();
+								}
+								break;
+							case CURRENT_TIMESTAMP:
+								if (LocalDateTime.class.equals(fieldType)) {
+									fieldValue = LocalDateTime.now();
+								} else if (Calendar.class.equals(fieldType)) {
+									fieldValue = Calendar.getInstance();
+								} else if (Instant.class.equals(fieldType)) {
+									fieldValue = Instant.now();
+								} else {
+									fieldValue = new Date();
+								}
+								break;
+						}
+						if (fieldValue != null) {
+							ReflectionUtils.setField(fieldName, object, fieldValue);
+						}
+					});
 			this.referenceDefineList.forEach(referenceDefine ->
 					this.processReference(object, referenceDefine, entityFactory));
 		}
@@ -2596,32 +2741,32 @@ public final class EntityFactory {
 			if (referenceTable == null) {
 				return;
 			}
-			BaseObject reference =
-					(BaseObject) ReflectionUtils.getFieldValue(referenceDefine.getFieldName(), object, Boolean.FALSE);
-			if (entityFactory.checkExist(reference)) {
-				return;
-			}
-			referenceTable.generateKey(reference, entityFactory);
-			switch (referenceDefine.getReferenceType()) {
-				case OneToOne:
-				case OneToMany:
-					for (JoinDefine joinDefine : referenceDefine.getJoinColumnList()) {
-						Optional.ofNullable(this.readFieldValue(object, joinDefine.getCurrentField()))
-								.ifPresent(fieldValue ->
-										referenceTable.writeFieldValue(reference,
-												joinDefine.getReferenceField(), fieldValue));
-					}
-					break;
-				case ManyToOne:
-					for (JoinDefine joinDefine : referenceDefine.getJoinColumnList()) {
-						Optional.ofNullable(referenceTable.readFieldValue(reference,
-										joinDefine.getReferenceField()))
-								.ifPresent(fieldValue ->
-										this.writeFieldValue(object, joinDefine.getCurrentField(),
-												fieldValue));
-					}
-					break;
-			}
+
+			Optional.ofNullable(ReflectionUtils.getFieldValue(referenceDefine.getFieldName(), object, Boolean.FALSE))
+					.filter(reference -> reference instanceof BaseObject)
+					.filter(reference -> !entityFactory.checkExist((BaseObject) reference))
+					.ifPresent(reference -> {
+						referenceTable.generateKey((BaseObject) reference, entityFactory);
+						switch (referenceDefine.getReferenceType()) {
+							case OneToOne:
+							case OneToMany:
+								for (JoinDefine joinDefine : referenceDefine.getJoinColumnList()) {
+									Optional.ofNullable(this.readFieldValue(object, joinDefine.getCurrentField()))
+											.ifPresent(fieldValue ->
+													referenceTable.writeFieldValue(reference,
+															joinDefine.getReferenceField(), fieldValue));
+								}
+								break;
+							case ManyToOne:
+								for (JoinDefine joinDefine : referenceDefine.getJoinColumnList()) {
+									Optional.ofNullable(referenceTable.readFieldValue(reference, joinDefine.getReferenceField()))
+											.ifPresent(fieldValue ->
+													this.writeFieldValue(object, joinDefine.getCurrentField(),
+															fieldValue));
+								}
+								break;
+						}
+					});
 		}
 
 		/**
@@ -2691,7 +2836,7 @@ public final class EntityFactory {
 		 * @param object  <span class="en-US">Entity classes instance object</span>
 		 *                <span class="zh-CN">实体类实例对象</span>
 		 */
-		private void copyData(final Map<String, Object> dataMap, final Object object) {
+		public void copyData(final Map<String, Object> dataMap, final Object object) {
 			Object primaryKey;
 			if (this.primaryKeyConfig.isCompositeId()) {
 				primaryKey = ReflectionUtils.getFieldValue(this.primaryKeyConfig.getFieldName(), object);
@@ -2703,10 +2848,48 @@ public final class EntityFactory {
 				if (columnDefine != null) {
 					String columnName = columnDefine.getColumnName();
 					String fieldName = this.columnFieldMapping.get(columnName);
-					if (columnDefine.isPrimaryKey()) {
-						ReflectionUtils.setField(fieldName, primaryKey, entry.getValue());
-					} else {
-						ReflectionUtils.setField(fieldName, object, entry.getValue());
+					Object fieldValue = entry.getValue();
+					if (fieldValue == null) {
+						continue;
+					}
+					Class<?> fieldType = this.fieldTypes.get(fieldName);
+					if (fieldType != null) {
+						if (!fieldType.equals(fieldValue.getClass())) {
+							switch (columnDefine.getJdbcType()) {
+								case Types.DATE:
+									if (Date.class.equals(fieldType)) {
+										fieldValue = new Date(((java.sql.Date) fieldValue).getTime());
+									} else if (LocalDate.class.equals(fieldType)) {
+										fieldValue = ((java.sql.Date) fieldValue).toLocalDate();
+									}
+									break;
+								case Types.TIME:
+									if (Date.class.equals(fieldType)) {
+										fieldValue = new Date(((java.sql.Time) fieldValue).getTime());
+									} else if (LocalTime.class.equals(fieldType)) {
+										fieldValue = ((java.sql.Time) fieldValue).toLocalTime();
+									}
+									break;
+								case Types.TIMESTAMP:
+									if (Date.class.equals(fieldType)) {
+										fieldValue = new Date(((java.sql.Timestamp) fieldValue).getTime());
+									} else if (Instant.class.equals(fieldType)) {
+										fieldValue = ((java.sql.Timestamp) fieldValue).toInstant();
+									} else if (LocalDateTime.class.equals(fieldType)) {
+										fieldValue = ((java.sql.Timestamp) fieldValue).toLocalDateTime();
+									} else if (Calendar.class.equals(fieldType)) {
+										Calendar calendar = Calendar.getInstance();
+										calendar.setTimeInMillis(((java.sql.Timestamp) fieldValue).getTime());
+										fieldValue = calendar;
+									}
+									break;
+							}
+						}
+						if (columnDefine.isPrimaryKey()) {
+							ReflectionUtils.setField(fieldName, primaryKey, fieldValue);
+						} else {
+							ReflectionUtils.setField(fieldName, object, fieldValue);
+						}
 					}
 				}
 			}

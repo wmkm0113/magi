@@ -35,30 +35,45 @@ import java.lang.annotation.*;
 public @interface Options {
 
     /**
+     * <h3 class="en-US">Obtain the cacheable data</h3>
+     * <h3 class="zh-CN">获取缓存数据</h3>
+     *
      * @return <span class="en-US">Cacheable data</span>
      * <span class="zh-CN">缓存数据</span>
      */
     boolean cacheable() default true;
 
     /**
+     * <h3 class="en-US">Obtain the lock option</h3>
+     * <h3 class="zh-CN">获取数据锁选项</h3>
+     *
      * @return <span class="en-US">Lock option</span>
      * <span class="zh-CN">数据锁选项</span>
      */
     LockModeType lockOption() default LockModeType.NONE;
 
     /**
+     * <h3 class="en-US">Obtain the drop option</h3>
+     * <h3 class="zh-CN">获取删除选项</h3>
+     *
      * @return <span class="en-US">Drop option</span>
      * <span class="zh-CN">删除选项</span>
      */
     DropOption dropOption() default DropOption.NONE;
 
     /**
+     * <h3 class="en-US">Obtain the database sharding configure</h3>
+     * <h3 class="zh-CN">获取数据库分片配置</h3>
+     *
      * @return <span class="en-US">Database sharding configure</span>
      * <span class="zh-CN">数据库分片配置</span>
      */
     Sharding databaseSharding() default @Sharding;
 
     /**
+     * <h3 class="en-US">Obtain the table sharding configure</h3>
+     * <h3 class="zh-CN">获取数据表分片配置</h3>
+     *
      * @return <span class="en-US">Table sharding configure</span>
      * <span class="zh-CN">数据表分片配置</span>
      */

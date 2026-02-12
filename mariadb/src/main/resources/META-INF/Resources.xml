@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+    <entry key="MariaDB_Dialect_Title">Maria DB</entry>
+    <entry key="MariaDB_Dialect_Description">Maria DB: the innovative open source database</entry>
+</properties>

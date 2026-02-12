@@ -1,0 +1,82 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "messages": {
+    "en-US": {
+      "Test_Begin": {
+        "pattern": "Start running current class: {0} current method: {1}"
+      },
+      "Test_Transactional_Config": {
+        "pattern": "Current transactional timeout: {0}, isolation: {1}"
+      },
+      "Test_End": {
+        "pattern": "Running current class: {0} current method: {1} finished."
+      },
+      "Test_Initialize_Table": {
+        "pattern": "Initialize table finished."
+      },
+      "Test_Identify_Code": {
+        "pattern": "Retrieve record using identify code: {0}"
+      },
+      "Test_Retrieve_Null": {
+        "pattern": "Read record null! "
+      },
+      "Test_Query_Total_Count": {
+        "pattern": "Total records: {0}"
+      },
+      "Test_Retrieve_Record": {
+        "pattern": "Read record: {0}"
+      },
+      "Test_Retrieve_Verify": {
+        "pattern": "Verify resource: {0}"
+      },
+      "Test_Retrieve_Reference": {
+        "pattern": "Retrieve reference record: {0}"
+      },
+      "Test_Update_Record": {
+        "pattern": "Update record: {0}"
+      },
+      "Test_Query_Record": {
+        "pattern": "Record {0}: {1}"
+      }
+    },
+    "zh-CN": {
+      "Test_Begin": {
+        "pattern": "开始执行测试类：{0} 测试方法：{1}"
+      },
+      "Test_Transactional_Config": {
+        "pattern": "当前事务超时时间：{0}，事务等级代码：{1}"
+      },
+      "Test_End": {
+        "pattern": "执行测试类：{0} 测试方法：{1} 完成"
+      },
+      "Test_Initialize_Table": {
+        "pattern": "初始化数据表完成。"
+      },
+      "Test_Identify_Code": {
+        "pattern": "唯一检索记录使用识别码：{0}"
+      },
+      "Test_Retrieve_Null": {
+        "pattern": "唯一检索记录为null。"
+      },
+      "Test_Query_Total_Count": {
+        "pattern": "查询总记录条数：{0}"
+      },
+      "Test_Retrieve_Record": {
+        "pattern": "检索到的记录：{0}"
+      },
+      "Test_Retrieve_Verify": {
+        "pattern": "验证资源信息结果：{0}"
+      },
+      "Test_Retrieve_Reference": {
+        "pattern": "检索到的关联信息：{0}"
+      },
+      "Test_Update_Record": {
+        "pattern": "要更新的记录：{0}"
+      },
+      "Test_Query_Record": {
+        "pattern": "记录{0}: {1}"
+      }
+    }
+  }
+}

@@ -1,7 +1,8 @@
 # The Magi DataCenter Platform
 
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/org.nervousync/magi-jdk11/badge.svg)](https://maven-badges.herokuapp.com/maven-central/org.nervousync/magi-jdk11/)
-[![License](https://img.shields.io/github/license/wmkm0113/magi-jdk11.svg)](https://github.com/wmkm0113/magi-jdk11/blob/master/LICENSE)
+[![Maven Central](https://img.shields.io/maven-central/v/org.nervousync/magi-jdk11?color=green&label=Release)](https://mvnrepository.com/artifact/org.nervousync/magi-jdk11)
+![Maven Snapshot](https://img.shields.io/maven-metadata/v?label=Snapshot&metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Forg%2Fnervousync%2Fmagi-jdk11%2Fmaven-metadata.xml)
+[![License](https://img.shields.io/github/license/wmkm0113/magi-jdk11)](https://github.com/wmkm0113/magi-jdk11/blob/mainline/LICENSE)
 ![Language](https://img.shields.io/badge/language-Java-green)
 [![Twitter:wmkm0113](https://img.shields.io/twitter/follow/wmkm0113?label=Follow)](https://twitter.com/wmkm0113)
 
@@ -10,7 +11,7 @@ English
 [繁體中文](README_zh_TW.md)
 
 The object relationship mapping system created for the data processing platform is completed based on the annotations provided by the Jakarta Persistence API to map the JavaBean and data tables, and the relationship between data tables, etc.
-The system provides extended annotations to realize the encryption, storage and query functions of sensitive data, and the secondary cache functions of data. It also provides the query input and output format of the unified data platform, data import and export tools, lazy loading data columns and other functions.
+The system provides extended annotations to realize the encryption, storage and query functions of sensitive data, and the secondary cache functions of data. It also provides the query input and output format of the unified data platform, data import and export tools, lazy loading data columns, and other functions.
 For data queries, users can query data across databases through a unified data query format. The system will automatically decompose the data query task based on the data table's association relationship, database and other information.
 And integrate the query results to return the query results in a unified format.
 
@@ -23,20 +24,19 @@ And integrate the query results to return the query results in a unified format.
   + [Register data table entity class](#3-Register-data-table-entity-class)
   + [Execute the operation](#4-Execute-the-operation)
 * [Sensitive data support](#Sensitive-data-support)
-* [Custom query optimizer](#Custom-query-optimizer)
 * [Modify data source configuration with programming](#Modify-data-source-configuration-with-programming)
 * [Data import and export](#data-import-and-export)
   + [Modify the entity class](#modify-the-entity-class)
   + [DataUtils initialize and usage](#datautils-initialize-and-usage)
 * [Contributions and feedback](#contributions-and-feedback)
-* [Sponsorship and Thanks To](#sponsorship-and-thanks-to)
+* [Donations](#donations)
 
 ## JDK Version
-Compile：OpenJDK 11   
-Runtime: OpenJDK 11+ or compatible version
+**Compile:** OpenJDK 11   
+**Runtime:** OpenJDK 11+ or compatible version   
+**Jakarta EE Platform:** 9
 
 ## End of Life
-
 **Features Freeze:** 31, Dec, 2026   
 **Secure Patch:** 31, Dec, 2029
 
@@ -51,11 +51,51 @@ Runtime: OpenJDK 11+ or compatible version
 </dependency>
 ```
 or using the target databases:
-Only support JDBC (Exclude Apache Derby)
+Only support MariaDB
 ```
 <dependency>
     <groupId>org.nervousync</groupId>
-	<artifactId>magi-jdbc-jdk11</artifactId>
+	<artifactId>magi-mariadb-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+Only support Mysql
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-mysql-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+Only support Oracle
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-oracle-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+Only support Postgres
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-pgsql-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+Only support SQLite
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-sqlite-jdk11</artifactId>
+    <version>${version}</version>
+</dependency>
+```
+Only support SQL Server
+```
+<dependency>
+    <groupId>org.nervousync</groupId>
+	<artifactId>magi-mssql-jdk11</artifactId>
     <version>${version}</version>
 </dependency>
 ```
@@ -90,10 +130,35 @@ Manual: compileOnly group: 'org.nervousync', name: 'magi-nodeps-jdk11', version:
 Short: compileOnly 'org.nervousync:magi-nodeps-jdk11:${version}'
 ```
 or using the target databases:
-Only support JDBC (Exclude Apache Derby)
+Only support MariaDB
 ```
-Manual: compileOnly group: 'org.nervousync', name: 'magi-jdbc-jdk11', version: '${version}'
-Short: compileOnly 'org.nervousync:magi-jdbc-jdk11:${version}'
+Manual: compileOnly group: 'org.nervousync', name: 'magi-mariadb-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-mariadb-jdk11:${version}'
+```
+Only support Mysql
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-mysql-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-mysql-jdk11:${version}'
+```
+Only support Oracle
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-oracle-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-oracle-jdk11:${version}'
+```
+Only support Postgres
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-pgsql-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-pgsql-jdk11:${version}'
+```
+Only support SQLite
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-sqlite-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-sqlite-jdk11:${version}'
+```
+Only support SQL Server
+```
+Manual: compileOnly group: 'org.nervousync', name: 'magi-mssql-jdk11', version: '${version}'
+Short: compileOnly 'org.nervousync:magi-mssql-jdk11:${version}'
 ```
 Only support Apache Derby
 ```
@@ -115,9 +180,29 @@ Short: compileOnly 'org.nervousync:magi-mongodb-jdk11:${version}'
 libraryDependencies += "org.nervousync" % "magi-nodeps-jdk11" % "${version}" % "provided"
 ```
 or using the target databases:
-Only support JDBC (Exclude Apache Derby)
+Only support MariaDB
 ```
-libraryDependencies += "org.nervousync" % "magi-jdbc-jdk11" % "${version}" % "provided"
+libraryDependencies += "org.nervousync" % "magi-mariadb-jdk11" % "${version}" % "provided"
+```
+Only support Mysql
+```
+libraryDependencies += "org.nervousync" % "magi-mysql-jdk11" % "${version}" % "provided"
+```
+Only support Oracle
+```
+libraryDependencies += "org.nervousync" % "magi-oracle-jdk11" % "${version}" % "provided"
+```
+Only support Postgres
+```
+libraryDependencies += "org.nervousync" % "magi-pgsql-jdk11" % "${version}" % "provided"
+```
+Only support SQLite
+```
+libraryDependencies += "org.nervousync" % "magi-sqlite-jdk11" % "${version}" % "provided"
+```
+Only support SQL Server
+```
+libraryDependencies += "org.nervousync" % "magi-mssql-jdk11" % "${version}" % "provided"
 ```
 Only support Apache Derby
 ```
@@ -136,9 +221,29 @@ libraryDependencies += "org.nervousync" % "magi-mongodb-jdk11" % "${version}" % 
 <dependency org="org.nervousync" name="magi-nodeps-jdk11" rev="${version}"/>
 ```
 or using the target databases:
-Only support JDBC (Exclude Apache Derby)
+Only support MariaDB
 ```
-<dependency org="org.nervousync" name="magi-jdbc-jdk11" rev="${version}"/>
+<dependency org="org.nervousync" name="magi-mariadb-jdk11" rev="${version}"/>
+```
+Only support Mysql
+```
+<dependency org="org.nervousync" name="magi-mysql-jdk11" rev="${version}"/>
+```
+Only support Oracle
+```
+<dependency org="org.nervousync" name="magi-oracle-jdk11" rev="${version}"/>
+```
+Only support Postgres
+```
+<dependency org="org.nervousync" name="magi-pgsql-jdk11" rev="${version}"/>
+```
+Only support SQLite
+```
+<dependency org="org.nervousync" name="magi-sqlite-jdk11" rev="${version}"/>
+```
+Only support SQL Server
+```
+<dependency org="org.nervousync" name="magi-mssql-jdk11" rev="${version}"/>
 ```
 Only support Apache Derby
 ```
@@ -347,23 +452,6 @@ before saving the entity instance to the database, toolkit will authenticate and
 Notice that if the parameter "type" values are NOT "NORMAL"
 toolkit will ignore the encrypting if the sensitive data content not matched the rule of the data type.
 
-## Custom query optimizer
-**1. Add query optimizer implementation class: ***
-Added a query optimizer implementation class and implemented the org.nervousync.magi.query.optimizer.QueryOptimizer interface.
-Add org.nervousync.annotations.provider.Provider annotation on the query optimizer implementation class and define the name attribute of the annotation.
-And write the implementation class to /META-INF/services/org.nervousync.magi.query.optimizer.QueryOptimizer file,
-The system uses Java SPI to load the class.
-
-**2. Use a custom query optimizer to implement the class: **
-When initializing the entity class factory, the specified query optimizer is displayed, and the entity class factory is initialized by calling the initialize static method of org.nervousync.magi.entity.EntityFactory.
-
-Parameter information:
-
-| Parameter name | Data type                                   | Purpose                                                     |
-|----------------|---------------------------------------------|-------------------------------------------------------------|
-| configure      | org.nervousync.brain.configs.BrainConfigure | Data source configuration information instance object       |
-| optimizerName  | String                                      | Name attribute value of query optimizer Provider annotation |
-
 ## Modify data source configuration with programming
 
 Program developers can configure data sources by using the org.nervousync.brain.configs.builder.BrainConfigureBuilder class,
@@ -422,8 +510,10 @@ If you need to add customized special requirements, I will charge a certain cust
 The specific fee amount will be assessed based on the workload of the customized special requirements.   
 For customized special features, please send an email directly to [wmkm0113\@gmail.com](mailto:wmkm0113@gmail.com?subject=payment_features). At the same time, please try to indicate the budget amount of development cost you can afford in the email.
 
-## Sponsorship and Thanks To
-<span id="JetBrains">
-    <img src="https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg" width="100px" alt="JetBrains Logo (Main) logo.">
-    <span>Many thanks to <a href="https://www.jetbrains.com/">JetBrains</a> for sponsoring our Open Source projects with a license.</span>
-</span>
+## Donations
+To support this project, you can make a donation to:
+
+* Bitcoin address: bc1ql7elx2j625x7f9tvax90v6zgwp55wy7uawtdtz
+* Ethereum address: 0xd88a49056E6ECE59e89c7e5724729A0FB0872986
+* Solana address: GSwycoeVZHRW72TcvW38qLfqsWhFbwDbxamaEuwEwQjW
+* BNB address: 0xd88a49056E6ECE59e89c7e5724729A0FB0872986

@@ -27,8 +27,6 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.codec.ExtraTypeCodecs;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodecs;
 import jakarta.annotation.Nonnull;
-import jakarta.persistence.LockModeType;
-import org.jetbrains.annotations.NotNull;
 import org.nervousync.brain.command.GeneratedCommand;
 import org.nervousync.brain.commons.BrainCommons;
 import org.nervousync.brain.configs.auth.impl.UserAuthentication;
@@ -42,30 +40,17 @@ import org.nervousync.brain.defines.TableDefine;
 import org.nervousync.brain.dialects.distribute.DistributeClient;
 import org.nervousync.brain.enumerations.ddl.DDLType;
 import org.nervousync.brain.enumerations.ddl.DropOption;
-import org.nervousync.brain.enumerations.query.ConditionCode;
-import org.nervousync.brain.enumerations.query.ItemType;
 import org.nervousync.brain.exceptions.data.RetrieveException;
 import org.nervousync.brain.exceptions.sql.MultilingualSQLException;
+import org.nervousync.brain.query.PartialCollection;
 import org.nervousync.brain.query.QueryInfo;
-import org.nervousync.brain.query.condition.Condition;
-import org.nervousync.brain.query.condition.impl.ColumnCondition;
-import org.nervousync.brain.query.condition.impl.GroupCondition;
-import org.nervousync.brain.query.core.AbstractItem;
-import org.nervousync.brain.query.data.QueryData;
-import org.nervousync.brain.query.item.ColumnItem;
-import org.nervousync.brain.query.item.FunctionItem;
-import org.nervousync.brain.query.join.JoinInfo;
-import org.nervousync.brain.query.join.QueryJoin;
-import org.nervousync.brain.query.param.AbstractParameter;
-import org.nervousync.brain.query.param.impl.ColumnParameter;
-import org.nervousync.brain.query.param.impl.QueryParameter;
 import org.nervousync.commons.Globals;
-import org.nervousync.enumerations.core.ConnectionCode;
-import org.nervousync.magi.entity.EntityFactory;
-import org.nervousync.utils.CertificateUtils;
-import org.nervousync.utils.DateTimeUtils;
-import org.nervousync.utils.LoggerUtils;
-import org.nervousync.utils.StringUtils;
+import org.nervousync.enumerations.beans.StringType;
+import org.nervousync.utils.cert.CertificateUtils;
+import org.nervousync.utils.core.BeanUtils;
+import org.nervousync.utils.core.DateTimeUtils;
+import org.nervousync.utils.core.StringUtils;
+import org.nervousync.utils.logger.LoggerUtils;
 
 import javax.net.ssl.*;
 import java.net.InetSocketAddress;
@@ -74,26 +59,83 @@ import java.security.KeyStore;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.*;
 
 /**
+ * <h2 class="en-US">Cassandra database client implementation class</h2>
+ * <h2 class="zh-CN">Cassandra数据库客户端实现类</h2>
  *
+ * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
+ * @version $Revision: 1.0.0 $ $Date: Nov 18, 2022 10:08:19 $
  */
 public final class CassandraClient implements DistributeClient {
 
-	private final LoggerUtils.Logger logger;
+	/**
+	 * <span class="en-US">Logger instance</span>
+	 * <span class="zh-CN">日志实例</span>
+	 */
+	private final LoggerUtils.Logger logger = LoggerUtils.getLogger(this.getClass());
+	/**
+	 * <span class="en-US">Database dialect instance object</span>
+	 * <span class="zh-CN">数据库方言实例对象</span>
+	 */
 	private final CassandraDialectImpl dialect;
+	/**
+	 * <span class="en-US">Cassandra connection session instance object</span>
+	 * <span class="zh-CN">Cassandra 连接实例对象</span>
+	 */
 	private final CqlSession cqlSession;
+	/**
+	 * <span class="en-US">Default keyspace name</span>
+	 * <span class="zh-CN">默认键空间</span>
+	 */
+	private final String keyspaceName;
+	/**
+	 * <span class="en-US">Database server info list</span>
+	 * <span class="zh-CN">数据库服务器列表</span>
+	 */
 	private final List<ServerInfo> serverList;
+	/**
+	 * <span class="en-US">Low query timeout (Unit: milliseconds)</span>
+	 * <span class="zh-CN">慢查询的临界时间（单位：毫秒）</span>
+	 */
 	private final long lowQueryTimeout;
+	/**
+	 * <span class="en-US">Maximum size of prepared statement</span>
+	 * <span class="zh-CN">查询分析器的最大缓存结果</span>
+	 */
 	private final int cachedLimitSize;
+	/**
+	 * <span class="en-US">List of existed keyspace names</span>
+	 * <span class="zh-CN">已存在的键空间名称列表</span>
+	 */
+	private final List<String> existKeySpaces = new ArrayList<>();
+	/**
+	 * <span class="en-US">Cached prepared statement mapping</span>
+	 * <span class="zh-CN">缓存的查询分析器映射表</span>
+	 */
 	private final Hashtable<Integer, SimpleStatementBuilder> cachedStatements;
+	/**
+	 * <span class="en-US">Database connection used by the current thread</span>
+	 * <span class="zh-CN">当前线程使用的数据库连接</span>
+	 */
 	private final ThreadLocal<BatchStatementBuilder> threadLocal;
 
+	/**
+	 * <h3 class="en-US">Constructor method for Cassandra database client implementation class</h3>
+	 * <h3 class="zh-CN">Cassandra数据库客户端实现类的构造方法</h3>
+	 *
+	 * @param dialect      <span class="en-US">Database dialect instance object</span>
+	 *                     <span class="zh-CN">数据库方言实例对象</span>
+	 * @param schemaConfig <span class="en-US">Data source configure information</span>
+	 *                     <span class="zh-CN">数据源配置信息</span>
+	 * @throws Exception <span class="en-US">An error occurs when configure SSL</span>
+	 *                   <span class="zh-CN">设置SSL时出错</span>
+	 */
 	CassandraClient(@Nonnull final CassandraDialectImpl dialect, @Nonnull final DistributeSchemaConfig schemaConfig)
 			throws Exception {
 		this.dialect = dialect;
+		this.keyspaceName = schemaConfig.getDatabaseName();
 		List<InetSocketAddress> serverAddressList = new ArrayList<>();
 		List<ServerInfo> serverList = schemaConfig.getServerList();
 		serverList.sort(Comparator.comparingInt(ServerInfo::getServerLevel));
@@ -125,10 +167,10 @@ public final class CassandraClient implements DistributeClient {
 			SSLContext sslContext = SSLContext.getDefault();
 			if (schemaConfig.getTrustStore() != null) {
 				TrustStore trustStore = schemaConfig.getTrustStore();
-				String password = StringUtils.isEmpty(trustStore.getTrustStorePassword())
+				String password = StringUtils.isEmpty(trustStore.getStorePassword())
 						? Globals.DEFAULT_VALUE_STRING
-						: trustStore.getTrustStorePassword();
-				KeyStore keyStore = CertificateUtils.loadKeyStore(trustStore.getTrustStorePath(), password);
+						: trustStore.getStorePassword();
+				KeyStore keyStore = CertificateUtils.loadKeyStore(trustStore.getStorePath(), password);
 				KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance("SunX509");
 				keyManagerFactory.init(keyStore, password.toCharArray());
 				KeyManager[] keyManagers = keyManagerFactory.getKeyManagers();
@@ -155,17 +197,14 @@ public final class CassandraClient implements DistributeClient {
 		this.cachedLimitSize = schemaConfig.getCachedLimitSize();
 		this.cachedStatements = new Hashtable<>();
 		this.threadLocal = new ThreadLocal<>();
-		this.logger = LoggerUtils.getLogger(this.getClass());
+		this.cqlSession.getMetadata()
+				.getKeyspaces()
+				.keySet()
+				.forEach(cqlIdentifier -> this.existKeySpaces.add(cqlIdentifier.asInternal()));
 	}
 
 	@Override
 	public void configRetry(final int retryCount, final long retryPeriod) {
-	}
-
-	@Override
-	public void initSharding(final String shardingKey) {
-		Optional.ofNullable(this.statement(this.dialect.createKeyspace(shardingKey, this.serverList)))
-				.ifPresent(this.cqlSession::execute);
 	}
 
 	@Override
@@ -199,7 +238,7 @@ public final class CassandraClient implements DistributeClient {
 	}
 
 	@Override
-	public void truncateTable(@NotNull final TableDefine tableDefine) {
+	public void truncateTable(@Nonnull final TableDefine tableDefine) {
 		Optional.ofNullable(this.statement(this.dialect.truncateTable(this.identifyCode(tableDefine))))
 				.ifPresent(this.cqlSession::execute);
 	}
@@ -212,42 +251,30 @@ public final class CassandraClient implements DistributeClient {
 		}
 	}
 
-	private String identifyCode(final TableDefine tableDefine) {
-		return this.identifyCode(tableDefine.getSchemaName(), tableDefine.getTableName());
-	}
-
-	private String identifyCode(final String keyspaceName, final String tableName) {
-		if (StringUtils.isEmpty(keyspaceName)) {
-			return this.identifyCode(CassandraDialectImpl.DEFAULT_KEYSPACE, tableName);
-		}
-		return keyspaceName + BrainCommons.DEFAULT_NAME_SPLIT + tableName;
-	}
-
 	@Override
-	public void dropTable(@NotNull final TableDefine tableDefine, @NotNull final DropOption dropOption) throws Exception {
+	public void dropTable(@Nonnull final TableDefine tableDefine, @Nonnull final DropOption dropOption) throws Exception {
 		Optional.ofNullable(this.statement(this.dialect.dropTable(this.identifyCode(tableDefine))))
 				.ifPresent(this.cqlSession::execute);
 		Thread.sleep(2000L);
 	}
 
 	@Override
-	public boolean lockRecord(@Nonnull final String keyspaceName, @NotNull final TableDefine tableDefine,
-	                          @NotNull final Map<String, Object> filterMap) {
+	public boolean lockRecord(@Nonnull final TableDefine tableDefine, @Nonnull final Map<String, Object> filterMap) {
 		return Boolean.TRUE;
 	}
 
 	@Override
-	public Map<String, Object> insert(@Nonnull final String keyspaceName, @NotNull final TableDefine tableDefine,
-	                                  @NotNull final Map<String, Object> dataMap) throws Exception {
-		this.initTable(DDLType.CREATE, tableDefine, keyspaceName);
-		this.executeCQL(this.dialect.insertCommand(keyspaceName, tableDefine, dataMap));
+	public Map<String, Object> insert(@Nonnull final TableDefine tableDefine, @Nonnull final Map<String, Object> dataMap) {
+		this.initKeyspace(tableDefine.getCatalog());
+		this.execute(this.dialect.insertCommand(keyspaceName, tableDefine, dataMap));
 		return Map.of();
 	}
 
 	@Override
-	public Map<String, Object> retrieve(@Nonnull final String keyspaceName, @NotNull final TableDefine tableDefine,
-	                                    final String columns, @NotNull final Map<String, Object> filterMap,
-	                                    final boolean forUpdate) throws Exception {
+	public Map<String, Object> retrieve(@Nonnull final TableDefine tableDefine,
+	                                    final String columns, @Nonnull final Map<String, Object> filterMap,
+	                                    final boolean forUpdate) {
+		this.initKeyspace(tableDefine.getCatalog());
 		GeneratedCommand generatedCommand = this.dialect.queryCommand(keyspaceName, tableDefine, columns, filterMap);
 		ResultSet resultSet = this.cqlSession.execute(this.statement(generatedCommand));
 		Iterator<Row> iterator = resultSet.iterator();
@@ -256,140 +283,56 @@ public final class CassandraClient implements DistributeClient {
 			if (resultMap != null) {
 				throw new RetrieveException(0x00DB00000028L,
 						keyspaceName + BrainCommons.DEFAULT_NAME_SPLIT + tableDefine.getTableName(),
-						StringUtils.objectToString(filterMap, StringUtils.StringType.JSON, Boolean.TRUE));
+						BeanUtils.objectToString(filterMap, StringType.JSON, Boolean.TRUE));
 			}
-			resultMap = this.rowToMap(tableDefine, iterator.next());
+			resultMap = this.rowToMap(generatedCommand.getJdbcTypeMap(), generatedCommand.getKeyMap(), iterator.next());
 		}
 		return resultMap == null ? Map.of() : resultMap;
 	}
 
-	private Map<String, Object> rowToMap(@NotNull final TableDefine tableDefine, final Row row) {
-		ColumnDefinitions columnDefinitions = row.getColumnDefinitions();
-		Map<String, Object> resultMap = new HashMap<>();
-		int columnCount = columnDefinitions.size();
-		for (int i = 0; i < columnCount; i++) {
-			String columnLabel = columnDefinitions.get(i).getName().asInternal();
-			ColumnDefine columnDefine = tableDefine.column(columnLabel);
-			if (columnDefine == null) {
-				continue;
-			}
-			switch (columnDefine.getJdbcType()) {
-				case Types.BLOB:
-				case Types.VARBINARY:
-				case Types.LONGNVARCHAR:
-					ByteBuffer byteBuffer = row.get(i, ByteBuffer.class);
-					if (byteBuffer != null) {
-						resultMap.put(columnLabel, byteBuffer.array());
-					}
-					break;
-				case Types.DATE:
-				case Types.TIME:
-				case Types.TIMESTAMP:
-					Instant instant = row.getInstant(i);
-					if (instant != null) {
-						resultMap.put(columnLabel, Date.from(instant));
-					}
-					break;
-				case Types.TINYINT:
-					resultMap.put(columnLabel, row.getByte(i));
-					break;
-				case Types.INTEGER:
-					resultMap.put(columnLabel, row.getInt(i));
-					break;
-				case Types.SMALLINT:
-					resultMap.put(columnLabel, Integer.valueOf(row.getInt(i)).shortValue());
-					break;
-				case Types.DOUBLE:
-					resultMap.put(columnLabel, row.getDouble(i));
-					break;
-				case Types.REAL:
-					resultMap.put(columnLabel, Float.valueOf(Double.toString(row.getDouble(i))));
-					break;
-				case Types.DECIMAL:
-					Optional.ofNullable(row.getBigDecimal(i))
-							.ifPresent(columnValue -> resultMap.put(columnLabel, columnValue));
-					break;
-				case Types.VARCHAR:
-					Optional.ofNullable(row.get(i, String.class))
-							.ifPresent(columnValue -> resultMap.put(columnLabel, columnValue));
-					break;
-				case Types.BOOLEAN:
-					resultMap.put(columnLabel, row.getBoolean(i));
-					break;
-				default:
-					Optional.ofNullable(row.get(i, Object.class))
-							.ifPresent(columnValue -> resultMap.put(columnLabel, columnValue));
-					break;
-			}
-		}
-		return resultMap;
+	@Override
+	public int update(@Nonnull final TableDefine tableDefine, @Nonnull final Map<String, Object> dataMap,
+	                  @Nonnull final Map<String, Object> filterMap) {
+		this.initKeyspace(tableDefine.getCatalog());
+		this.execute(this.dialect.updateCommand(keyspaceName, tableDefine, dataMap, filterMap));
+		return 1;
 	}
 
 	@Override
-	public int update(@Nonnull final String keyspaceName, @NotNull final TableDefine tableDefine,
-	                  @NotNull final Map<String, Object> dataMap, @NotNull final Map<String, Object> filterMap) {
-		this.executeCQL(this.dialect.updateCommand(keyspaceName, tableDefine, dataMap, filterMap));
-		return Globals.INITIALIZE_INT_VALUE;
+	public int delete(@Nonnull final TableDefine tableDefine, @Nonnull final Map<String, Object> filterMap) {
+		this.initKeyspace(tableDefine.getCatalog());
+		this.execute(this.dialect.deleteCommand(keyspaceName, tableDefine, filterMap));
+		return 1;
 	}
 
 	@Override
-	public int delete(@Nonnull final String keyspaceName, @NotNull final TableDefine tableDefine,
-	                  @NotNull final Map<String, Object> filterMap) {
-		this.executeCQL(this.dialect.deleteCommand(keyspaceName, tableDefine, filterMap));
-		return Globals.INITIALIZE_INT_VALUE;
-	}
-
-	@Override
-	public List<Map<String, Object>> query(@Nonnull final String keyspaceName, @NotNull final TableDefine tableDefine,
-	                                       @NotNull final QueryInfo queryInfo)
-			throws Exception {
+	public PartialCollection query(@Nonnull final QueryInfo queryInfo) throws Exception {
 		long beginTimestamp = DateTimeUtils.currentUTCTimeMillis();
-		Map<String, List<Map<String, Object>>> subQueryResults = new HashMap<>();
-		QueryInfo optimizedQuery;
-		if (queryInfo.getQueryJoins().isEmpty()) {
-			optimizedQuery = queryInfo;
-		} else {
-			optimizedQuery = this.subQuery(keyspaceName, queryInfo, subQueryResults);
+		if (!queryInfo.getQueryJoins().isEmpty()) {
+			throw new MultilingualSQLException(0x00DB00CA0001L);
 		}
+		this.initKeyspace(this.keyspaceName);
 		List<Map<String, Object>> queryResults =
-				this.executeQuery(tableDefine, this.dialect.queryCommand(keyspaceName, optimizedQuery),
+				this.executeQuery(this.dialect.queryCommand(this.keyspaceName, queryInfo),
 						queryInfo.getPageNo(), queryInfo.getPageLimit());
 
 		if (this.lowQueryTimeout > 0L) {
 			long usedTime = DateTimeUtils.currentUTCTimeMillis() - beginTimestamp;
 			if (this.lowQueryTimeout < usedTime) {
-				this.logger.warn("", queryInfo.toString());
+				this.logger.warn("Low_Query_Warning", queryInfo.toString(), this.lowQueryTimeout, usedTime);
 			}
 		}
 
-		return queryResults;
+		return new PartialCollection(queryResults, this.queryTotal(queryInfo));
 	}
 
 	@Override
-	public List<Map<String, Object>> queryForUpdate(@Nonnull final String keyspaceName,
-	                                                @NotNull final TableDefine tableDefine,
-	                                                final List<Condition> conditionList,
-	                                                final LockModeType lockOption) throws Exception {
-		return this.executeQuery(tableDefine,
-				this.dialect.queryCommand(keyspaceName, tableDefine.getTableName(), conditionList, Boolean.FALSE));
-	}
-
-	@Override
-	public Long queryTotal(@Nonnull final String keyspaceName, @NotNull final TableDefine tableDefine,
-	                       final QueryInfo queryInfo) throws Exception {
-		GeneratedCommand generatedCommand;
-		QueryInfo optimizedQuery;
-		if (queryInfo.getQueryJoins().isEmpty()) {
-			generatedCommand =
-					this.dialect.queryCommand(keyspaceName, tableDefine.getTableName(), queryInfo.getConditionList(),
-							Boolean.TRUE);
-		} else {
-			Map<String, List<Map<String, Object>>> subQueryResults = new HashMap<>();
-			optimizedQuery = this.subQuery(keyspaceName, queryInfo, subQueryResults);
-			generatedCommand =
-					this.dialect.queryCommand(keyspaceName, tableDefine.getTableName(), optimizedQuery.getConditionList(),
-							Boolean.TRUE);
+	public Long queryTotal(final QueryInfo queryInfo) throws Exception {
+		if (!queryInfo.getQueryJoins().isEmpty()) {
+			throw new MultilingualSQLException(0x00DB00CA0001L);
 		}
+		this.initKeyspace(this.keyspaceName);
+		GeneratedCommand generatedCommand = this.dialect.queryTotalCommand(this.keyspaceName, queryInfo);
 		ResultSet resultSet = this.cqlSession.execute(this.statement(generatedCommand));
 		for (Row row : resultSet) {
 			ColumnDefinitions columnDefinitions = row.getColumnDefinitions();
@@ -397,7 +340,7 @@ public final class CassandraClient implements DistributeClient {
 
 			for (int i = 0; i < columnCount; i++) {
 				String columnLabel = columnDefinitions.get(i).getName().asInternal();
-				if (columnLabel.equalsIgnoreCase("COUNT")) {
+				if ("COUNT".equalsIgnoreCase(columnLabel)) {
 					return row.getLong(i);
 				}
 			}
@@ -406,21 +349,22 @@ public final class CassandraClient implements DistributeClient {
 	}
 
 	@Override
-	public void initTable(@NotNull final DDLType ddlType, @NotNull final TableDefine tableDefine,
-	                      final String keyspaceName) throws SQLException {
+	public void initTable(@Nonnull final DDLType ddlType, @Nonnull final TableDefine tableDefine) throws SQLException {
 		if (DDLType.NONE.equals(ddlType)) {
 			return;
 		}
+		String keyspace = StringUtils.isEmpty(tableDefine.getCatalog()) ? this.keyspaceName : tableDefine.getCatalog();
+		this.initKeyspace(keyspace);
 
 		String tableName = tableDefine.getTableName();
-		List<ColumnDefine> existsColumns = this.existsColumns(keyspaceName, tableName);
+		List<ColumnDefine> existsColumns = this.existsColumns(keyspace, tableName);
 		if (existsColumns.isEmpty()) {
 			if (DDLType.CREATE.equals(ddlType) || DDLType.CREATE_DROP.equals(ddlType)
 					|| DDLType.CREATE_TRUNCATE.equals(ddlType) || DDLType.SYNCHRONIZE.equals(ddlType)) {
-				Optional.ofNullable(this.statement(this.dialect.createTable(keyspaceName, tableDefine)))
+				Optional.ofNullable(this.statement(this.dialect.createTable(keyspace, tableDefine)))
 						.ifPresent(this.cqlSession::execute);
 				for (IndexDefine indexDefine : tableDefine.getIndexDefines()) {
-					Optional.ofNullable(this.statement(this.dialect.createIndex(keyspaceName, tableName, indexDefine)))
+					Optional.ofNullable(this.statement(this.dialect.createIndex(keyspace, tableName, indexDefine)))
 							.ifPresent(this.cqlSession::execute);
 				}
 			}
@@ -428,7 +372,7 @@ public final class CassandraClient implements DistributeClient {
 			if (DDLType.VALIDATE.equals(ddlType)) {
 				tableDefine.validate(existsColumns);
 			} else if (DDLType.SYNCHRONIZE.equals(ddlType)) {
-				List<String> commandList = this.dialect.alterTable(keyspaceName, tableDefine, existsColumns);
+				List<String> commandList = this.dialect.alterTable(keyspace, tableDefine, existsColumns);
 				if (!commandList.isEmpty()) {
 					BatchStatementBuilder statementBuilder = BatchStatement.builder(BatchType.UNLOGGED);
 					for (String command : commandList) {
@@ -443,6 +387,131 @@ public final class CassandraClient implements DistributeClient {
 	@Override
 	public void close() {
 		this.cqlSession.close();
+	}
+
+	/**
+	 * <h3 class="en-US">Initialize keyspace</h3>
+	 * <h3 class="zh-CN">初始化键空间</h3>
+	 *
+	 * @param keyspaceName <span class="en-US">Keyspace name</span>
+	 *                     <span class="zh-CN">键空间名称</span>
+	 */
+	private void initKeyspace(final String keyspaceName) {
+		if (StringUtils.notBlank(keyspaceName) && !this.existKeySpaces.contains(keyspaceName)) {
+			Optional.ofNullable(this.statement(this.dialect.createKeyspace(keyspaceName, this.serverList)))
+					.ifPresent(this.cqlSession::execute);
+		}
+	}
+
+	/**
+	 * <h3 class="en-US">Generate data table identify code</h3>
+	 * <h3 class="zh-CN">生成数据表识别代码</h3>
+	 *
+	 * @param tableDefine <span class="en-US">Table defines information</span>
+	 *                    <span class="zh-CN">数据表定义信息</span>
+	 * @return <span class="en-US">Identify code</span>
+	 * <span class="zh-CN">识别代码</span>
+	 */
+	private String identifyCode(final TableDefine tableDefine) {
+		String keyspaceName = StringUtils.isEmpty(tableDefine.getCatalog()) ? this.keyspaceName : tableDefine.getCatalog();
+		return this.identifyCode(keyspaceName, tableDefine.getTableName());
+	}
+
+	/**
+	 * <h3 class="en-US">Generate data table identify code</h3>
+	 * <h3 class="zh-CN">生成数据表识别代码</h3>
+	 *
+	 * @param keyspaceName <span class="en-US">Keyspace name</span>
+	 *                     <span class="zh-CN">键空间名称</span>
+	 * @param tableName    <span class="en-US">Data table name</span>
+	 *                     <span class="zh-CN">数据表名</span>
+	 * @return <span class="en-US">Identify code</span>
+	 * <span class="zh-CN">识别代码</span>
+	 */
+	private String identifyCode(final String keyspaceName, final String tableName) {
+		return keyspaceName + BrainCommons.DEFAULT_NAME_SPLIT + tableName;
+	}
+
+	/**
+	 * <h3 class="en-US">Convert data records into data mapping tables</h3>
+	 * <h3 class="zh-CN">转换数据记录为数据映射表</h3>
+	 *
+	 * @param jdbcTypeMap <span class="en-US">Data column label and types mapping table</span>
+	 *                    <span class="zh-CN">数据列类型映射表</span>
+	 * @param row         <span class="en-US">Data record</span>
+	 *                    <span class="zh-CN">数据记录</span>
+	 * @return <span class="en-US">Data mapping tables</span>
+	 * <span class="zh-CN">数据映射表</span>
+	 */
+	private Map<String, Object> rowToMap(@Nonnull final Map<String, Integer> jdbcTypeMap,
+	                                     @Nonnull final Map<String, String> keyMap, final Row row) {
+		ColumnDefinitions columnDefinitions = row.getColumnDefinitions();
+		Map<String, Object> resultMap = new HashMap<>();
+		int columnCount = columnDefinitions.size();
+		for (int i = 0; i < columnCount; i++) {
+			String columnLabel = columnDefinitions.get(i).getName().asInternal();
+			String aliasName = keyMap.getOrDefault(columnLabel, columnLabel);
+			Integer jdbcType = jdbcTypeMap.get(columnLabel);
+			if (jdbcType == null) {
+				continue;
+			}
+			switch (jdbcType) {
+				case Types.BLOB:
+				case Types.VARBINARY:
+				case Types.LONGNVARCHAR:
+					ByteBuffer byteBuffer = row.get(i, ByteBuffer.class);
+					if (byteBuffer != null) {
+						resultMap.put(aliasName, byteBuffer.array());
+					}
+					break;
+				case Types.DATE:
+					Optional.ofNullable(row.getInstant(i))
+							.map(instant -> new java.sql.Date(instant.toEpochMilli()))
+							.ifPresent(value -> resultMap.put(aliasName, value));
+					break;
+				case Types.TIME:
+					Optional.ofNullable(row.getInstant(i))
+							.map(instant -> new java.sql.Time(instant.toEpochMilli()))
+							.ifPresent(value -> resultMap.put(aliasName, value));
+					break;
+				case Types.TIMESTAMP:
+					Optional.ofNullable(row.getInstant(i))
+							.map(instant -> new java.sql.Timestamp(instant.toEpochMilli()))
+							.ifPresent(value -> resultMap.put(aliasName, value));
+					break;
+				case Types.TINYINT:
+					resultMap.put(aliasName, row.getByte(i));
+					break;
+				case Types.INTEGER:
+					resultMap.put(aliasName, row.getInt(i));
+					break;
+				case Types.SMALLINT:
+					resultMap.put(aliasName, Integer.valueOf(row.getInt(i)).shortValue());
+					break;
+				case Types.DOUBLE:
+					resultMap.put(aliasName, row.getDouble(i));
+					break;
+				case Types.REAL:
+					resultMap.put(aliasName, Float.valueOf(Double.toString(row.getDouble(i))));
+					break;
+				case Types.DECIMAL:
+					Optional.ofNullable(row.getBigDecimal(i))
+							.ifPresent(columnValue -> resultMap.put(aliasName, columnValue));
+					break;
+				case Types.VARCHAR:
+					Optional.ofNullable(row.get(i, String.class))
+							.ifPresent(columnValue -> resultMap.put(aliasName, columnValue));
+					break;
+				case Types.BOOLEAN:
+					resultMap.put(aliasName, row.getBoolean(i));
+					break;
+				default:
+					Optional.ofNullable(row.get(i, Object.class))
+							.ifPresent(columnValue -> resultMap.put(aliasName, columnValue));
+					break;
+			}
+		}
+		return resultMap;
 	}
 
 	/**
@@ -463,404 +532,6 @@ public final class CassandraClient implements DistributeClient {
 	}
 
 	/**
-	 * <h3 class="en-US">Analyze and execute subqueries</h3>
-	 * <h3 class="zh-CN">分析并执行子查询</h3>
-	 *
-	 * @param keyspaceName    <span class="en-US">Keyspace name</span>
-	 *                        <span class="zh-CN">键空间名称</span>
-	 * @param queryInfo       <span class="en-US">Query record information</span>
-	 *                        <span class="zh-CN">数据检索信息</span>
-	 * @param subQueryResults <span class="en-US">Subquery result mapping table</span>
-	 *                        <span class="zh-CN">子查询结果映射表</span>
-	 * @return <span class="en-US">Final query record information</span>
-	 * <span class="zh-CN">最终数据检索信息</span>
-	 * @throws SQLException <span class="en-US">An error occurred while execute the subqueries</span>
-	 *                      <span class="zh-CN">执行子查询时出现错误</span>
-	 */
-	private QueryInfo subQuery(@Nonnull final String keyspaceName, @Nonnull final QueryInfo queryInfo,
-	                           final Map<String, List<Map<String, Object>>> subQueryResults)
-			throws Exception {
-		List<String> subQueryNames = new ArrayList<>();
-		for (QueryJoin queryJoin : queryInfo.getQueryJoins()) {
-			if (!subQueryNames.contains(queryJoin.getJoinTable())) {
-				subQueryNames.add(queryJoin.getJoinTable());
-			}
-		}
-		while (!subQueryNames.isEmpty()) {
-			Iterator<String> iterator = subQueryNames.iterator();
-			while (iterator.hasNext()) {
-				String subQueryName = iterator.next();
-				QueryInfo subQuery = this.subQuery(keyspaceName, subQueryName, queryInfo.getItemList(),
-						queryInfo.getQueryJoins(), queryInfo.getConditionList(), subQueryResults);
-				if (subQuery.getQueryJoins().isEmpty()) {
-					EntityFactory.TableConfig tableConfig = EntityFactory.getInstance().tableConfig(subQueryName);
-					if (tableConfig == null) {
-						throw new MultilingualSQLException(0x00DB00010005L);
-					}
-					subQueryResults.put(this.dialect.nameCase(subQueryName),
-							this.executeQuery(tableConfig.getTableDefine(),
-									this.dialect.queryCommand(keyspaceName, subQuery)));
-					iterator.remove();
-				}
-			}
-		}
-		return this.subQuery(keyspaceName, queryInfo.getTableName(), queryInfo.getItemList(), queryInfo.getQueryJoins(),
-				queryInfo.getConditionList(), subQueryResults);
-	}
-
-	/**
-	 * <h3 class="en-US">Analyze and execute subqueries</h3>
-	 * <h3 class="zh-CN">分析并执行子查询</h3>
-	 *
-	 * @param keyspaceName    <span class="en-US">Keyspace name</span>
-	 *                        <span class="zh-CN">键空间名称</span>
-	 * @param tableName       <span class="en-US">Data table name</span>
-	 *                        <span class="zh-CN">数据表名</span>
-	 * @param itemList        <span class="en-US">Query item instance list</span>
-	 *                        <span class="zh-CN">查询项目实例对象列表</span>
-	 * @param joinList        <span class="en-US">Related query information list</span>
-	 *                        <span class="zh-CN">关联查询信息列表</span>
-	 * @param conditionList   <span class="en-US">Query condition instance list</span>
-	 *                        <span class="zh-CN">查询条件实例对象列表</span>
-	 * @param subQueryResults <span class="en-US">Subquery result mapping table</span>
-	 *                        <span class="zh-CN">子查询结果映射表</span>
-	 * @return <span class="en-US">Final query record information</span>
-	 * <span class="zh-CN">最终数据检索信息</span>
-	 * @throws Exception <span class="en-US">An error occurred while execute the subqueries</span>
-	 *                      <span class="zh-CN">执行子查询时出现错误</span>
-	 */
-	private QueryInfo subQuery(final String keyspaceName, final String tableName, final List<AbstractItem> itemList,
-	                           final List<QueryJoin> joinList, final List<Condition> conditionList,
-	                           final Map<String, List<Map<String, Object>>> subQueryResults) throws Exception {
-		List<AbstractItem> queryItems = new ArrayList<>();
-		List<QueryJoin> queryJoinList = new ArrayList<>();
-		List<Condition> queryConditions = new ArrayList<>();
-		for (QueryJoin queryJoin : joinList) {
-			if (queryJoin.getDriverTable().equalsIgnoreCase(tableName)) {
-				String referenceName = this.dialect.nameCase(queryJoin.getJoinTable());
-				if (subQueryResults.containsKey(referenceName)) {
-					List<Map<String, Object>> subQueryResult = subQueryResults.get(referenceName);
-					if (!subQueryResult.isEmpty()) {
-						if (queryJoin.getJoinInfos().size() == 1) {
-							JoinInfo joinColumn = queryJoin.getJoinInfos().get(0);
-							queryConditions.add(
-									this.subCondition(subQueryResult, queryJoin.getDriverTable(), joinColumn.getJoinKey(),
-											this.dialect.nameCase(joinColumn.getReferenceKey())));
-						} else if (queryJoin.getJoinInfos().size() > 1) {
-							List<Condition> groupConditions = new ArrayList<>();
-							for (JoinInfo joinColumn : queryJoin.getJoinInfos()) {
-								groupConditions.add(
-										this.subCondition(subQueryResult, queryJoin.getDriverTable(), joinColumn.getJoinKey(),
-												this.dialect.nameCase(joinColumn.getReferenceKey())));
-							}
-							queryConditions.add(Condition.group(Globals.DEFAULT_VALUE_INT, ConnectionCode.AND,
-									groupConditions.toArray(new Condition[0])));
-						} else {
-							throw new MultilingualSQLException(0L);
-						}
-					}
-				} else {
-					queryJoinList.add(queryJoin);
-				}
-			} else if (queryJoin.getJoinTable().equalsIgnoreCase(tableName)) {
-				for (JoinInfo joinColumn : queryJoin.getJoinInfos()) {
-					queryItems.add(AbstractItem.column(tableName, joinColumn.getReferenceKey()));
-				}
-			}
-		}
-		for (AbstractItem abstractItem : itemList) {
-			if (this.matchItem(tableName, abstractItem)) {
-				queryItems.add(abstractItem);
-			}
-		}
-		for (Condition condition : conditionList) {
-			Optional.ofNullable(this.subCondition(keyspaceName, tableName, condition, subQueryResults))
-					.ifPresent(queryConditions::add);
-		}
-
-		QueryInfo subQuery = new QueryInfo();
-		subQuery.setTableName(tableName);
-		subQuery.setItemList(queryItems);
-		subQuery.setQueryJoins(queryJoinList);
-		subQuery.setConditionList(queryConditions);
-		return subQuery;
-	}
-
-	/**
-	 * <h3 class="en-US">Check whether the given query item information matches the given data table name</h3>
-	 * <h3 class="zh-CN">检查给定的查询项信息是否与给定的数据表名匹配</h3>
-	 *
-	 * @param tableName    <span class="en-US">Data table name</span>
-	 *                     <span class="zh-CN">数据表名</span>
-	 * @param abstractItem <span class="en-US">Query item instance object</span>
-	 *                     <span class="zh-CN">查询项信息</span>
-	 * @return <span class="en-US">Check result</span>
-	 * <span class="zh-CN">检查结果</span>
-	 * @throws SQLException <span class="en-US">An error occurred while execute the check</span>
-	 *                      <span class="zh-CN">执行检查时出现错误</span>
-	 */
-	private boolean matchItem(final String tableName, final AbstractItem abstractItem) throws SQLException {
-		switch (abstractItem.getItemType()) {
-			case COLUMN:
-				return abstractItem.unwrap(ColumnItem.class).getTableName().equalsIgnoreCase(tableName);
-			case FUNCTION:
-				FunctionItem functionItem = abstractItem.unwrap(FunctionItem.class);
-				for (AbstractParameter<?> functionParameter : functionItem.getFunctionParams()) {
-					if (this.matchParameter(tableName, functionParameter)) {
-						return Boolean.TRUE;
-					}
-				}
-				return Boolean.FALSE;
-			default:
-				throw new MultilingualSQLException(0L);
-		}
-	}
-
-	/**
-	 * <h3 class="en-US">Check whether the given parameter information matches the given data table name</h3>
-	 * <h3 class="zh-CN">检查给定的参数信息是否与给定的数据表名匹配</h3>
-	 *
-	 * @param tableName         <span class="en-US">Data table name</span>
-	 *                          <span class="zh-CN">数据表名</span>
-	 * @param abstractParameter <span class="en-US">Query parameter instance object</span>
-	 *                          <span class="zh-CN">查询参数信息</span>
-	 * @return <span class="en-US">Check result</span>
-	 * <span class="zh-CN">检查结果</span>
-	 * @throws SQLException <span class="en-US">An error occurred while execute the check</span>
-	 *                      <span class="zh-CN">执行检查时出现错误</span>
-	 */
-	private boolean matchParameter(final String tableName, final AbstractParameter<?> abstractParameter)
-			throws SQLException {
-		if (ItemType.COLUMN.equals(abstractParameter.getItemType())) {
-			return abstractParameter.unwrap(ColumnParameter.class)
-					.getItemValue().getTableName().equalsIgnoreCase(tableName);
-		}
-		return Boolean.FALSE;
-	}
-
-	/**
-	 * <h3 class="en-US">Convert the given query matching information</h3>
-	 * <h3 class="zh-CN">转换给定的查询匹配信息</h3>
-	 *
-	 * @param keyspaceName    <span class="en-US">Keyspace name</span>
-	 *                        <span class="zh-CN">键空间名称</span>
-	 * @param tableName       <span class="en-US">Data table name</span>
-	 *                        <span class="zh-CN">数据表名</span>
-	 * @param condition       <span class="en-US">Original match condition information</span>
-	 *                        <span class="zh-CN">原始匹配信息</span>
-	 * @param subQueryResults <span class="en-US">Subquery result mapping table</span>
-	 *                        <span class="zh-CN">子查询结果映射表</span>
-	 * @return <span class="en-US">Converted matching condition information</span>
-	 * <span class="zh-CN">转换后的匹配条件信息</span>
-	 * @throws Exception <span class="en-US">An error occurred while execute the conversation</span>
-	 *                      <span class="zh-CN">执行转换时出现错误</span>
-	 */
-	private Condition subCondition(final String keyspaceName, final String tableName, final Condition condition,
-	                               final Map<String, List<Map<String, Object>>> subQueryResults)
-			throws Exception {
-		Condition returnCondition = null;
-		switch (condition.getConditionType()) {
-			case COLUMN:
-				ColumnCondition columnCondition = condition.unwrap(ColumnCondition.class);
-				if (columnCondition.getTableName().equalsIgnoreCase(tableName)) {
-					returnCondition = this.subCondition(keyspaceName, columnCondition, subQueryResults);
-				}
-				break;
-			case GROUP:
-				GroupCondition groupCondition = condition.unwrap(GroupCondition.class);
-				List<Condition> subConditions = new ArrayList<>();
-				for (Condition subCondition : groupCondition.getConditionList()) {
-					Optional.ofNullable(this.subCondition(keyspaceName, tableName, subCondition, subQueryResults))
-							.ifPresent(subConditions::add);
-				}
-				if (subConditions.size() == 1) {
-					Condition subCondition = subConditions.get(0);
-					subCondition.setSortCode(condition.getSortCode());
-					subCondition.setConnectionCode(condition.getConnectionCode());
-					returnCondition = subCondition;
-				} else if (subConditions.size() > 1) {
-					returnCondition = Condition.group(condition.getSortCode(), condition.getConnectionCode(),
-							subConditions.toArray(new Condition[0]));
-				}
-				break;
-		}
-		return returnCondition;
-	}
-
-	/**
-	 * <h3 class="en-US">Convert the given query matching information</h3>
-	 * <h3 class="zh-CN">转换给定的查询匹配信息</h3>
-	 *
-	 * @param keyspaceName    <span class="en-US">Keyspace name</span>
-	 *                        <span class="zh-CN">键空间名称</span>
-	 * @param columnCondition <span class="en-US">Data column match condition information</span>
-	 *                        <span class="zh-CN">数据列匹配条件</span>
-	 * @param subQueryResults <span class="en-US">Subquery result mapping table</span>
-	 *                        <span class="zh-CN">子查询结果映射表</span>
-	 * @return <span class="en-US">Converted matching condition information</span>
-	 * <span class="zh-CN">转换后的匹配条件信息</span>
-	 * @throws SQLException <span class="en-US">An error occurred while execute the conversation</span>
-	 *                      <span class="zh-CN">执行转换时出现错误</span>
-	 */
-	private Condition subCondition(final String keyspaceName, final ColumnCondition columnCondition,
-	                               final Map<String, List<Map<String, Object>>> subQueryResults) throws Exception {
-		final AbstractParameter<?> parameter = columnCondition.getConditionParameter();
-		switch (parameter.getItemType()) {
-			case COLUMN:
-				ColumnItem columnItem = parameter.unwrap(ColumnParameter.class).getItemValue();
-				if (!subQueryResults.containsKey(columnItem.getTableName())) {
-					throw new MultilingualSQLException(0L);
-				}
-				return this.subCondition(subQueryResults.get(this.dialect.nameCase(columnItem.getTableName())),
-						columnCondition, this.dialect.nameCase(columnItem.getColumnName()));
-			case QUERY:
-				QueryData queryData = parameter.unwrap(QueryParameter.class).getItemValue();
-				GeneratedCommand generatedCommand =
-						this.dialect.queryCommand(keyspaceName, queryData.getTableName(), queryData.getQueryItem(),
-								queryData.getConditions());
-					EntityFactory.TableConfig tableConfig =
-							EntityFactory.getInstance().tableConfig(queryData.getTableName());
-					if (tableConfig == null) {
-						throw new MultilingualSQLException(0x00DB00010005L);
-					}
-				return this.subCondition(this.executeQuery(tableConfig.getTableDefine(), generatedCommand),
-						columnCondition, Globals.DEFAULT_VALUE_STRING);
-			default:
-				return columnCondition;
-		}
-	}
-
-	/**
-	 * <h3 class="en-US">Convert the given query matching information</h3>
-	 * <h3 class="zh-CN">转换给定的查询匹配信息</h3>
-	 *
-	 * @param subResults <span class="en-US">Sub-query result list</span>
-	 *                   <span class="zh-CN">子查询结果集</span>
-	 * @param tableName  <span class="en-US">Data table name</span>
-	 *                   <span class="zh-CN">数据表名</span>
-	 * @param columnName <span class="en-US">Data column name</span>
-	 *                   <span class="zh-CN">数据列名</span>
-	 * @param matchKey   <span class="en-US">Match data column name</span>
-	 *                   <span class="zh-CN">匹配数据列名</span>
-	 * @return <span class="en-US">Converted matching condition information</span>
-	 * <span class="zh-CN">转换后的匹配条件信息</span>
-	 * @throws SQLException <span class="en-US">An error occurred while execute the conversation</span>
-	 *                      <span class="zh-CN">执行转换时出现错误</span>
-	 */
-	private Condition subCondition(final List<Map<String, Object>> subResults, final String tableName,
-	                               final String columnName, final String matchKey) throws SQLException {
-		if (subResults.size() == 1) {
-			Map<String, Object> subResult = subResults.get(0);
-			if (StringUtils.isEmpty(columnName)) {
-				Iterator<Map.Entry<String, Object>> iterator = subResult.entrySet().iterator();
-				if (iterator.hasNext()) {
-					return Condition.column(Globals.DEFAULT_VALUE_INT, ConnectionCode.AND,
-							ConditionCode.EQUAL, tableName, columnName,
-							AbstractParameter.constant(iterator.next().getValue()));
-				}
-				throw new MultilingualSQLException(0L);
-			} else {
-				if (subResult.containsKey(matchKey)) {
-					return Condition.column(Globals.DEFAULT_VALUE_INT, ConnectionCode.AND,
-							ConditionCode.EQUAL, tableName, columnName,
-							AbstractParameter.constant(subResult.get(this.dialect.nameCase(matchKey))));
-				}
-			}
-			throw new MultilingualSQLException(0L);
-		} else if (subResults.size() > 1) {
-			return Condition.column(Globals.DEFAULT_VALUE_INT, ConnectionCode.AND,
-					ConditionCode.IN, tableName, columnName, this.arrayParameter(subResults, matchKey));
-		} else {
-			throw new MultilingualSQLException(0L);
-		}
-	}
-
-	/**
-	 * <h3 class="en-US">Convert the given query matching information</h3>
-	 * <h3 class="zh-CN">转换给定的查询匹配信息</h3>
-	 *
-	 * @param subResults      <span class="en-US">Sub-query result list</span>
-	 *                        <span class="zh-CN">子查询结果集</span>
-	 * @param columnCondition <span class="en-US">Data column match condition information</span>
-	 *                        <span class="zh-CN">数据列匹配条件</span>
-	 * @param columnName      <span class="en-US">Data column name</span>
-	 *                        <span class="zh-CN">数据列名</span>
-	 * @return <span class="en-US">Converted matching condition information</span>
-	 * <span class="zh-CN">转换后的匹配条件信息</span>
-	 * @throws SQLException <span class="en-US">An error occurred while execute the conversation</span>
-	 *                      <span class="zh-CN">执行转换时出现错误</span>
-	 */
-	private Condition subCondition(final List<Map<String, Object>> subResults,
-	                               final ColumnCondition columnCondition, final String columnName)
-			throws SQLException {
-		if (subResults.size() == 1) {
-			Map<String, Object> subResult = subResults.get(0);
-			if (StringUtils.isEmpty(columnName)) {
-				Iterator<Map.Entry<String, Object>> iterator = subResult.entrySet().iterator();
-				if (iterator.hasNext()) {
-					return Condition.column(columnCondition.getSortCode(), columnCondition.getConnectionCode(),
-							columnCondition.getConditionCode(), columnCondition.getTableName(),
-							columnCondition.getColumnName(), AbstractParameter.constant(iterator.next().getValue()));
-				}
-				throw new MultilingualSQLException(0L);
-			} else {
-				if (subResult.containsKey(columnName)) {
-					return Condition.column(columnCondition.getSortCode(), columnCondition.getConnectionCode(),
-							columnCondition.getConditionCode(), columnCondition.getTableName(),
-							columnCondition.getColumnName(), AbstractParameter.constant(subResult.get(columnName)));
-				}
-			}
-			throw new MultilingualSQLException(0L);
-		} else if (subResults.size() > 1) {
-			ConditionCode conditionCode = columnCondition.getConditionCode();
-			if (!ConditionCode.EQUAL.equals(conditionCode)
-					&& !ConditionCode.NOT_EQUAL.equals(conditionCode)
-					&& !ConditionCode.IN.equals(conditionCode)
-					&& !ConditionCode.NOT_IN.equals(conditionCode)) {
-				throw new MultilingualSQLException(0L);
-			}
-			switch (conditionCode) {
-				case EQUAL:
-					conditionCode = ConditionCode.IN;
-					break;
-				case NOT_EQUAL:
-					conditionCode = ConditionCode.NOT_IN;
-					break;
-			}
-			return Condition.column(columnCondition.getSortCode(), columnCondition.getConnectionCode(),
-					conditionCode, columnCondition.getTableName(),
-					columnCondition.getColumnName(), this.arrayParameter(subResults, columnName));
-		} else {
-			throw new MultilingualSQLException(0L);
-		}
-	}
-
-	/**
-	 * <h3 class="en-US">Generate the array parameter instance object</h3>
-	 * <h3 class="zh-CN">生成数组匹配参数</h3>
-	 *
-	 * @param subResults <span class="en-US">Sub-query result list</span>
-	 *                   <span class="zh-CN">子查询结果集</span>
-	 * @param columnName <span class="en-US">Data column name</span>
-	 *                   <span class="zh-CN">数据列名</span>
-	 * @return <span class="en-US">Generated parameter instance object</span>
-	 * <span class="zh-CN">生成的参数实例对象</span>
-	 * @throws SQLException <span class="en-US">Match results not found</span>
-	 *                      <span class="zh-CN">匹配结果未找到</span>
-	 */
-	private AbstractParameter<?> arrayParameter(final List<Map<String, Object>> subResults, final String columnName)
-			throws SQLException {
-		List<Object> resultValues = new ArrayList<>();
-		for (Map<String, Object> subResult : subResults) {
-			Optional.ofNullable(subResult.get(columnName)).ifPresent(resultValues::add);
-		}
-		if (resultValues.isEmpty()) {
-			throw new MultilingualSQLException(0L);
-		}
-		return AbstractParameter.arrays(resultValues.toArray());
-	}
-
-	/**
 	 * <h3 class="en-US">Execute query command</h3>
 	 * <h3 class="zh-CN">执行查询命令</h3>
 	 *
@@ -869,22 +540,7 @@ public final class CassandraClient implements DistributeClient {
 	 * @return <span class="en-US">Query result record list</span>
 	 * <span class="zh-CN">查询结果数据列表</span>
 	 */
-	private List<Map<String, Object>> executeQuery(@NotNull final TableDefine tableDefine,
-	                                               final GeneratedCommand generatedCommand) {
-		return this.executeQuery(tableDefine, generatedCommand, Globals.DEFAULT_VALUE_INT, Globals.DEFAULT_VALUE_INT);
-	}
-
-	/**
-	 * <h3 class="en-US">Execute query command</h3>
-	 * <h3 class="zh-CN">执行查询命令</h3>
-	 *
-	 * @param generatedCommand <span class="en-US">Generated CQL command</span>
-	 *                         <span class="zh-CN">生成的CQL命令</span>
-	 * @return <span class="en-US">Query result record list</span>
-	 * <span class="zh-CN">查询结果数据列表</span>
-	 */
-	private List<Map<String, Object>> executeQuery(@NotNull final TableDefine tableDefine,
-	                                               final GeneratedCommand generatedCommand,
+	private List<Map<String, Object>> executeQuery(final GeneratedCommand generatedCommand,
 	                                               final int pageNo, final int pageLimit) {
 		ResultSet resultSet = this.cqlSession.execute(this.statement(generatedCommand));
 		Iterator<Row> iterator = resultSet.iterator();
@@ -895,11 +551,12 @@ public final class CassandraClient implements DistributeClient {
 		}
 		int index = Globals.INITIALIZE_INT_VALUE;
 		while (iterator.hasNext()) {
+			Row row = iterator.next();
 			if (offset <= index) {
-				resultList.add(this.rowToMap(tableDefine, iterator.next()));
+				resultList.add(this.rowToMap(generatedCommand.getJdbcTypeMap(), generatedCommand.getKeyMap(), row));
 			}
 			if (pageLimit > Globals.INITIALIZE_INT_VALUE && resultList.size() == pageLimit) {
-				return resultList;
+				break;
 			}
 			index++;
 		}
@@ -913,7 +570,7 @@ public final class CassandraClient implements DistributeClient {
 	 * @param generatedCommand <span class="en-US">Generated CQL command</span>
 	 *                         <span class="zh-CN">生成的CQL命令</span>
 	 */
-	private void executeCQL(final GeneratedCommand generatedCommand) {
+	private void execute(final GeneratedCommand generatedCommand) {
 		Optional.ofNullable(this.statement(generatedCommand))
 				.ifPresent(statement -> {
 					BatchStatementBuilder statementBuilder = this.threadLocal.get();
@@ -937,9 +594,6 @@ public final class CassandraClient implements DistributeClient {
 	 * <span class="zh-CN">已存在数据列定义信息列表</span>
 	 */
 	private List<ColumnDefine> existsColumns(final String keyspaceName, final String tableName) {
-		if (StringUtils.isEmpty(keyspaceName)) {
-			return this.existsColumns(CassandraDialectImpl.DEFAULT_KEYSPACE, tableName);
-		}
 		return this.cqlSession.getMetadata()
 				.getKeyspaces()
 				.entrySet()

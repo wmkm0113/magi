@@ -16,9 +16,10 @@ import org.nervousync.magi.entity.BaseObject;
 /**
  * The type Distribute reference.
  *
- * @author Steven Wee	<a href="mailto:wmkm0113@Hotmail.com">wmkm0113@Hotmail.com</a>
- * @version $Revision : 1.0 $ $Date: 3/16/2021 02:30 PM $
+ * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
+ * @version $Revision: 1.0 $ $Date: 3/16/2021 02:30 PM $
  */
+@SuppressWarnings("unused")
 @Table(name = "Distribute_Reference")
 public final class DistributeReference extends BaseObject {
 

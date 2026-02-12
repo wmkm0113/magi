@@ -1,0 +1,22 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "messages": {
+    "en-US": {
+      "PgSQL_Dialect_Title": {
+        "pattern": "PostgreSQL"
+      },
+      "PgSQL_Dialect_Description": {
+        "pattern": "PostgreSQL: The World's Most Advanced Open Source Relational Database"
+      }
+    },
+    "zh-CN": {
+      "PgSQL_Dialect_Title": {
+        "pattern": "PostgreSQL"
+      },
+      "PgSQL_Dialect_Description": {
+        "pattern": "PostgreSQL：全球最先进的开源关系数据库"
+      }
+    }
+  }
+}

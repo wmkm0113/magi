@@ -31,28 +31,42 @@ import java.lang.annotation.RetentionPolicy;
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
  * @version $Revision: 1.0.0 $ $Date: Nov 15, 2023 15:30:22 $
  */
+@SuppressWarnings("unused")
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 public @interface OrderColumn {
 
     /**
+     * <h3 class="en-US">Obtain the entity class to which the data column belongs</h3>
+     * <h3 class="zh-CN">获取数据列所属的实体类</h3>
+     *
      * @return <span class="en-US">The entity class to which the data column belongs</span>
      * <span class="zh-CN">数据列所属的实体类</span>
      */
     Class<?> entity();
 
     /**
+     * <h3 class="en-US">Obtain the identify key of the data column</h3>
+     * <h3 class="zh-CN">获取数据列识别代码</h3>
+     *
      * @return <span class="en-US">Identify key of the data column</span>
      * <span class="zh-CN">数据列识别代码</span>
      */
     String identifyKey();
+
     /**
+     * <h3 class="en-US">Obtain the query order type</h3>
+     * <h3 class="zh-CN">获取查询结果集排序类型</h3>
+     *
      * @return <span class="en-US">Query order type</span>
      * <span class="zh-CN">查询结果集排序类型</span>
      */
     OrderType type() default OrderType.ASC;
 
     /**
+     * <h3 class="en-US">Obtain the sort code</h3>
+     * <h3 class="zh-CN">获取排序代码</h3>
+     *
      * @return <span class="en-US">Sort code</span>
      * <span class="zh-CN">排序代码</span>
      */

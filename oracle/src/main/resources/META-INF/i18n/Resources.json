@@ -1,0 +1,22 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "messages": {
+    "en-US": {
+      "Oracle_Dialect_Title": {
+        "pattern": "Oracle"
+      },
+      "Oracle_Dialect_Description": {
+        "pattern": "Oracle: A relational database management system from Oracle Corporation"
+      }
+    },
+    "zh-CN": {
+      "Oracle_Dialect_Title": {
+        "pattern": "Oracle"
+      },
+      "Oracle_Dialect_Description": {
+        "pattern": "Oracle：甲骨文公司的一款关系数据库管理系统"
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "errors": {
+    "0x00DB00020001": "Alter_Column_Type_Not_Support"
+  },
+  "messages": [
+    {
+      "en-US": {
+        "Derby_Dialect_Title": {
+          "pattern": "Apache Derby"
+        },
+        "Derby_Dialect_Description": {
+          "pattern": "Apache Derby: an open source relational database implemented entirely in Java and available under the Apache License, Version 2.0"
+        },
+        "Alter_Column_Type_Not_Support": {
+          "pattern": "Derby not support to modify the column type from {0} to {1}"
+        }
+      },
+      "zh-CN": {
+        "Derby_Dialect_Title": {
+          "pattern": "Apache Derby"
+        },
+        "Derby_Dialect_Description": {
+          "pattern": "Apache Derby：完全用 Java 实现的开源关系数据库，可根据 Apache 许可证版本 2.0 使用"
+        },
+        "Alter_Column_Type_Not_Support": {
+          "pattern": "Derby不支持修改数据列类型从：{0} 转换为：{1}"
+        }
+      }
+    }
+  ]
+}

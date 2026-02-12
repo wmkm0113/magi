@@ -16,21 +16,19 @@
   ~ limitations under the License.
   -->
 
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.nervousync</groupId>
-        <artifactId>magi-jdk11</artifactId>
-        <version>1.0.0</version>
+        <artifactId>magi-parent</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
     </parent>
-    <artifactId>magi-cassandra-jdk11</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <artifactId>magi-cassandra</artifactId>
     <packaging>jar</packaging>
     <name>Nervousync ORM Framework Cassandra Module</name>
     <description>Magi Data Platform Middleware Cassandra Module</description>
-    <url>https://nervousync.org/projects/magi/jdk11/cassandra/index.shtml</url>
+    <url>https://nervousync.org/projects/magi/cassandra/index.shtml</url>
     <licenses>
         <license>
             <name>The Apache Software License, Version 2.0</name>
@@ -52,19 +50,17 @@
         </developer>
     </developers>
     <properties>
-        <netty.version>4.1.118.Final</netty.version>
-        <cassandra.version>4.19.0</cassandra.version>
+        <netty.version>4.2.10.Final</netty.version>
+        <cassandra.version>4.19.2</cassandra.version>
     </properties>
     <dependencies>
         <dependency>
             <groupId>org.nervousync</groupId>
-            <artifactId>magi-core-jdk11</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+            <artifactId>magi-core</artifactId>
         </dependency>
         <dependency>
             <groupId>org.nervousync</groupId>
-            <artifactId>magi-test-jdk11</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+            <artifactId>magi-test</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- Cassandra -->
@@ -81,7 +77,7 @@
         <dependency>
             <groupId>com.github.spotbugs</groupId>
             <artifactId>spotbugs-annotations</artifactId>
-            <version>4.9.0</version>
+            <version>4.9.8</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.code.findbugs</groupId>

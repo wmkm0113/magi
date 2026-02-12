@@ -17,7 +17,24 @@
 
 package org.nervousync.magi.entity;
 
-import java.io.Serializable;
+import jakarta.persistence.MappedSuperclass;
+import jakarta.xml.bind.annotation.XmlAccessType;
+import jakarta.xml.bind.annotation.XmlAccessorType;
 
-public abstract class CompositeId implements Serializable {
+/**
+ * <h2 class="en-US">Abstract class of composite id</h2>
+ * <h2 class="zh-CN">联合主键抽象类</h2>
+ *
+ * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
+ * @version $Revision: 1.0.0 $ $Date: Jan 9, 2018 10:21:06 $
+ */
+@MappedSuperclass
+@XmlAccessorType(XmlAccessType.NONE)
+public abstract class CompositeId extends BaseObject {
+
+	/**
+	 * <span class="en-US">Serial version UID</span>
+	 * <span class="zh-CN">序列化UID</span>
+	 */
+    private static final long serialVersionUID = 5318132557578234103L;
 }

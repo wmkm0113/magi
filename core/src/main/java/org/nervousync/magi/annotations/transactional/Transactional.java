@@ -22,7 +22,7 @@ import org.nervousync.magi.enumerations.transactional.Isolation;
 import java.lang.annotation.*;
 
 /**
- * <h2 class="en-US">The annotation of transactional configure</h2>
+ * <h2 class="en-US">The annotation of transactional configuring</h2>
  * <h2 class="zh-CN">事务配置信息的注解</h2>
  *
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
@@ -33,18 +33,27 @@ import java.lang.annotation.*;
 @Target({ElementType.METHOD, ElementType.TYPE})
 public @interface Transactional {
     /**
+     * <h3 class="en-US">Obtain the timeout value of transactional</h3>
+     * <h3 class="zh-CN">获取事务的超时时间</h3>
+     *
      * @return <span class="en-US">The timeout value of transactional</span>
      * <span class="zh-CN">事务的超时时间</span>
      */
     int timeout() default Globals.DEFAULT_VALUE_INT;
 
     /**
+     * <h3 class="en-US">Obtain the isolation value of transactional</h3>
+     * <h3 class="zh-CN">获取事务的等级代码</h3>
+     *
      * @return <span class="en-US">The isolation value of transactional</span>
      * <span class="zh-CN">事务的等级代码</span>
      */
     Isolation isolation() default Isolation.DEFAULT;
 
     /**
+     * <h3 class="en-US">Obtain the rollback exception class of transactional</h3>
+     * <h3 class="zh-CN">获取事务的回滚异常</h3>
+     *
      * @return <span class="en-US">The rollback exception class of transactional</span>
      * <span class="zh-CN">事务的回滚异常</span>
      */

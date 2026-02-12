@@ -1,0 +1,22 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "messages": {
+    "en-US": {
+      "MariaDB_Dialect_Title": {
+        "pattern": "MariaDB"
+      },
+      "MariaDB_Dialect_Description": {
+        "pattern": "MariaDB: the innovative open source database"
+      }
+    },
+    "zh-CN": {
+      "MariaDB_Dialect_Title": {
+        "pattern": "MariaDB"
+      },
+      "MariaDB_Dialect_Description": {
+        "pattern": "MariaDB：创新的开源数据库"
+      }
+    }
+  }
+}

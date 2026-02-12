@@ -35,24 +35,27 @@ import java.lang.annotation.*;
 public @interface Sharding {
 
 	/**
+	 * <h3 class="en-US">Obtain the sharding default value</h3>
+	 * <h3 class="zh-CN">获取分片默认值</h3>
+	 *
      * @return <span class="en-US">Sharding default value</span>
      * <span class="zh-CN">分片默认值</span>
 	 */
 	String value() default Globals.DEFAULT_VALUE_STRING;
 
 	/**
+	 * <h3 class="en-US">Obtain the sharding column name</h3>
+	 * <h3 class="zh-CN">获取分片数据列名称</h3>
+	 *
      * @return <span class="en-US">Sharding column name</span>
      * <span class="zh-CN">分片数据列名称</span>
 	 */
-	String column() default Globals.DEFAULT_VALUE_STRING;
+	String[] columns() default {};
 
 	/**
-     * @return <span class="en-US">Sharding template</span>
-     * <span class="zh-CN">分片值模板</span>
-	 */
-	String template() default Globals.DEFAULT_VALUE_STRING;
-
-	/**
+	 * <h3 class="en-US">Obtain the sharding calculate utility class</h3>
+	 * <h3 class="zh-CN">获取分片计算工具类</h3>
+	 *
      * @return <span class="en-US">Sharding calculate utility class</span>
      * <span class="zh-CN">分片计算工具类</span>
 	 */

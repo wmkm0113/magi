@@ -18,6 +18,7 @@
 package org.nervousync.magi.test.distribute.impl;
 
 import org.nervousync.brain.configs.server.ServerInfo;
+import org.nervousync.commons.Globals;
 import org.nervousync.magi.test.distribute.DistributeTest;
 
 import java.util.List;
@@ -25,7 +26,7 @@ import java.util.List;
 public final class MongoDBTest extends DistributeTest {
 	public MongoDBTest() throws Exception {
 		super("MongoDB", "nervousync", serverList(), Boolean.FALSE,
-				"nervousync", "ns0528AO@!");
+				Globals.DEFAULT_VALUE_STRING, Globals.DEFAULT_VALUE_STRING);
 	}
 
 	private static List<ServerInfo> serverList() {

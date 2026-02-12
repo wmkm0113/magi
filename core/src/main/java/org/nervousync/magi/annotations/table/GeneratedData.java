@@ -39,12 +39,18 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public @interface GeneratedData {
 
     /**
+     * <h3 class="en-US">Obtain the generation type</h3>
+     * <h3 class="zh-CN">获取生成器类型</h3>
+     *
      * @return <span class="en-US">Generation type</span>
      * <span class="zh-CN">生成器类型</span>
      */
     GenerationType type() default GenerationType.ASSIGNED;
 
     /**
+     * <h3 class="en-US">Obtain the generator name</h3>
+     * <h3 class="zh-CN">获取生成器名称</h3>
+     *
      * @return <span class="en-US">Generator name</span>
      * <span class="zh-CN">生成器名称</span>
      */

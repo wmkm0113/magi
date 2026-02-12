@@ -23,6 +23,10 @@
         {
           "key": "Cassandra_Dialect_Description",
           "content": "Apache Cassandra is an open source NoSQL distributed database trusted by thousands of companies for scalability and high availability without compromising performance. Linear scalability and proven fault-tolerance on commodity hardware or cloud infrastructure make it the perfect platform for mission-critical data."
+        },
+        {
+          "key": "Low_Query_Warning",
+          "content": "Low query detected! Query information: {0}, slow query timeout: {1} ms, query used time: {2} ms"
         }
       ]
     },
@@ -41,6 +45,10 @@
         {
           "key": "Cassandra_Dialect_Description",
           "content": "Apache Cassandra 是一种开源 NoSQL 分布式数据库，在不影响性能的情况下具有可扩展性和高可用性，受到数千家公司的信赖。商用硬件或云基础设施的线性可扩展性和经过验证的容错能力使其成为关键任务数据的完美平台。"
+        },
+        {
+          "key": "Low_Query_Warning",
+          "content": "检测到慢查询！查询信息：{0}，慢查询超时时间：{1} ms，查询使用时间：{2} ms"
         }
       ]
     }

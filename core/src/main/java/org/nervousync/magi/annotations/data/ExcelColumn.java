@@ -31,6 +31,9 @@ import java.lang.annotation.*;
 @Target({ElementType.FIELD})
 public @interface ExcelColumn {
     /**
+     * <h3 class="en-US">Obtain the column index value at the Excel sheet</h3>
+     * <h3 class="zh-CN">获取Excel表中的列排列序号</h3>
+     *
      * @return <span class="en-US">Column order number in Excel</span>
      * <span class="zh-CN">Excel表中的列排列序号</span>
      */

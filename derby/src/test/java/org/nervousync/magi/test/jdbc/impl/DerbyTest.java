@@ -23,6 +23,6 @@ import org.nervousync.magi.test.relational.RelationalTest;
 public final class DerbyTest extends RelationalTest {
 	public DerbyTest() throws Exception {
 		super("Derby", "jdbc:derby:D:/nervousync;create=true", Globals.DEFAULT_VALUE_STRING,
-				Globals.DEFAULT_VALUE_INT, Boolean.TRUE, Globals.DEFAULT_VALUE_STRING, Globals.DEFAULT_VALUE_STRING);
+				Globals.DEFAULT_VALUE_INT, Globals.DEFAULT_VALUE_STRING, Boolean.TRUE, Globals.DEFAULT_VALUE_STRING, Globals.DEFAULT_VALUE_STRING);
 	}
 }

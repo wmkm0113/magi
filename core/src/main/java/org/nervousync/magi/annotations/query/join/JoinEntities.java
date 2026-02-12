@@ -30,29 +30,42 @@ import java.lang.annotation.RetentionPolicy;
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
  * @version $Revision: 1.0.0 $ $Date: Nov 15, 2023 15:21:18 $
  */
+@SuppressWarnings("unused")
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 public @interface JoinEntities {
 
 	/**
+	 * <h3 class="en-US">Obtain the join type</h3>
+	 * <h3 class="zh-CN">获取关联类型</h3>
+	 *
      * @return <span class="en-US">Join type</span>
      * <span class="zh-CN">关联类型</span>
 	 */
 	JoinType type();
 
 	/**
+	 * <h3 class="en-US">Obtain the driver table entity class</h3>
+	 * <h3 class="zh-CN">获取驱动表实体类</h3>
+	 *
      * @return <span class="en-US">Driver table entity class</span>
      * <span class="zh-CN">驱动表实体类</span>
 	 */
 	Class<?> mainEntity();
 
 	/**
+	 * <h3 class="en-US">Obtain the association table entity class</h3>
+	 * <h3 class="zh-CN">获取关联表实体类</h3>
+	 *
      * @return <span class="en-US">Association table entity class</span>
      * <span class="zh-CN">关联表实体类</span>
 	 */
 	Class<?> referenceEntity();
 
 	/**
+	 * <h3 class="en-US">Obtain the association information array</h3>
+	 * <h3 class="zh-CN">获取关联信息数组</h3>
+	 *
      * @return <span class="en-US">Association information array</span>
      * <span class="zh-CN">关联信息数组</span>
 	 */

@@ -1,0 +1,38 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "errors": {
+    "0x00DB000A0001": "Parse_Query_Failed",
+    "0x00DB000A0002": "Parameter_Type_Not_Support"
+  },
+  "messages": {
+    "en-US": {
+      "Parse_Query_Failed": {
+        "pattern": "Convert query information to bson document failed! "
+      },
+      "Parameter_Type_Not_Support": {
+        "pattern": "Condition parameter type not support! "
+      },
+      "MongoDB_Dialect_Title": {
+        "pattern": "MongoDB"
+      },
+      "MongoDB_Dialect_Description": {
+        "pattern": "MongoDB is a document database, and data is stored in the form of JSON-like documents. MongoDB is designed to handle large data volumes, high performance, and flexibility needs."
+      }
+    },
+    "zh-CN": {
+      "Parse_Query_Failed": {
+        "pattern": "转换查询信息为bson文档出错"
+      },
+      "Parameter_Type_Not_Support": {
+        "pattern": "不支持的查询匹配条件参数类型！"
+      },
+      "MongoDB_Dialect_Title": {
+        "pattern": "MongoDB"
+      },
+      "MongoDB_Dialect_Description": {
+        "pattern": "MongoDB 是一个文档型数据库，数据以类似JSON 的文档形式存储。 MongoDB 的设计理念是为了应对大数据量、高性能和灵活性需求。"
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+    <entry key="Sharding_Not_Support">Can't support sharding</entry>
+    <entry key="Cassandra_Dialect_Title">Apache Cassandra</entry>
+    <entry key="Cassandra_Dialect_Description">Apache Cassandra is an open source NoSQL distributed database trusted by thousands of companies for scalability and high availability without compromising performance. Linear scalability and proven fault-tolerance on commodity hardware or cloud infrastructure make it the perfect platform for mission-critical data.</entry>
+    <entry key="Low_Query_Warning">Low query detected! Query information: {0}, slow query timeout: {1} ms, query used time: {2} ms</entry>
+</properties>

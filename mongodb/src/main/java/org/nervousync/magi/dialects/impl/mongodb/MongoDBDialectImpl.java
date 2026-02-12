@@ -20,16 +20,18 @@ package org.nervousync.magi.dialects.impl.mongodb;
 import org.nervousync.annotations.provider.Provider;
 import org.nervousync.brain.annotations.dialect.DataType;
 import org.nervousync.brain.annotations.dialect.SchemaDialect;
-import org.nervousync.brain.configs.auth.Authentication;
 import org.nervousync.brain.configs.schema.impl.DistributeSchemaConfig;
-import org.nervousync.brain.configs.secure.TrustStore;
 import org.nervousync.brain.dialects.distribute.DistributeClient;
 import org.nervousync.brain.dialects.distribute.DistributeDialect;
 import org.nervousync.brain.exceptions.dialects.DialectException;
+import org.nervousync.brain.query.param.AbstractParameter;
 import org.nervousync.commons.Globals;
+import org.nervousync.utils.core.StringUtils;
 
+import java.sql.SQLException;
 import java.sql.Types;
-import java.util.Properties;
+import java.util.List;
+import java.util.Map;
 
 /**
  * <h2 class="en-US">MongoDB database dialect implementation class</h2>
@@ -71,8 +73,8 @@ public final class MongoDBDialectImpl extends DistributeDialect {
 	 * <h3 class="en-US">Constructor method for MongoDB database dialect implementation class</h3>
 	 * <h3 class="zh-CN">MongoDB数据库方言实现类的构造方法</h3>
 	 *
-	 * @throws DialectException <span class="en-US">If the implementation class does not find the org. nervousync. brain. annotations. dialect.SchemaDialect annotation</span>
-	 *                          <span class="zh-CN">如果实现类未找到org. nervousync. brain. annotations. dialect.SchemaDialect注解</span>
+	 * @throws DialectException <span class="en-US">If the implementation class does not find the SchemaDialect annotation</span>
+	 *                          <span class="zh-CN">如果实现类未找到SchemaDialect注解</span>
 	 */
 	public MongoDBDialectImpl() throws DialectException {
 	}
@@ -83,18 +85,13 @@ public final class MongoDBDialectImpl extends DistributeDialect {
 	}
 
 	@Override
-	public String defaultValue(final int jdbcType, final int length, final int precision,
-	                           final int scale, final Object object) {
-		return Globals.DEFAULT_VALUE_STRING;
-	}
-
-	@Override
 	public String nameCase(final String name) {
-		return name;
+		return StringUtils.isEmpty(name) ? Globals.DEFAULT_VALUE_STRING : name;
 	}
 
 	@Override
-	public Properties properties(final TrustStore trustStore, final Authentication authentication) {
-		return null;
+	@SuppressWarnings("RedundantThrows")
+	protected String parameterValue(final Map<String, String> aliasMap, final AbstractParameter<?> abstractParameter, final List<Object> values) throws SQLException {
+		return Globals.DEFAULT_VALUE_STRING;
 	}
 }

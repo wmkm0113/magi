@@ -13,17 +13,20 @@ import org.nervousync.brain.enumerations.ddl.GenerationType;
 import org.nervousync.commons.Globals;
 import org.nervousync.magi.annotations.table.GeneratedData;
 import org.nervousync.magi.entity.BaseObject;
-import org.nervousync.utils.IDUtils;
+import org.nervousync.utils.id.IDUtils;
 
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /**
  * The type Test entity.
  *
- * @author Steven Wee	<a href="mailto:wmkm0113@Hotmail.com">wmkm0113@Hotmail.com</a>
- * @version $Revision : 1.0 $ $Date: 11/30/2020 1:05 PM $
+ * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
+ * @version $Revision: 1.0 $ $Date: 11/30/2020 1:05 PM $
  */
+@SuppressWarnings("unused")
 @Table(name = "Test_Distribute", indexes = {
 		@Index(name = "title_index", columnList = "msgTitle")
 })
@@ -50,7 +53,7 @@ public final class TestDistribute extends BaseObject {
 	 * The Msg content.
 	 */
 	@Lob
-//	@Basic(fetch = FetchType.LAZY)
+	@Basic(fetch = FetchType.LAZY)
 	@Column
 	private byte[] msgBytes;
 	/**
@@ -94,20 +97,20 @@ public final class TestDistribute extends BaseObject {
 	 * The Test date.
 	 */
 	@Column
-	@Temporal(TemporalType.DATE)
-	private Date testDate;
+//	@Temporal(TemporalType.DATE)
+	private LocalDate testDate;
 	/**
 	 * The Test time.
 	 */
 	@Column
-	@Temporal(TemporalType.TIME)
-	private Date testTime;
+//	@Temporal(TemporalType.TIME)
+	private LocalTime testTime;
 	/**
 	 * The Test timestamp.
 	 */
 	@Column
-	@Temporal(TemporalType.TIMESTAMP)
-	private Date testTimestamp;
+//	@Temporal(TemporalType.TIMESTAMP)
+	private LocalDateTime testTimestamp;
 	/**
 	 * The Test big decimal.
 	 */
@@ -314,7 +317,7 @@ public final class TestDistribute extends BaseObject {
 	 *
 	 * @return the test date
 	 */
-	public Date getTestDate() {
+	public LocalDate getTestDate() {
 		return testDate;
 	}
 
@@ -323,7 +326,7 @@ public final class TestDistribute extends BaseObject {
 	 *
 	 * @param testDate the test date
 	 */
-	public void setTestDate(Date testDate) {
+	public void setTestDate(LocalDate testDate) {
 		this.testDate = testDate;
 	}
 
@@ -332,7 +335,7 @@ public final class TestDistribute extends BaseObject {
 	 *
 	 * @return the test time
 	 */
-	public Date getTestTime() {
+	public LocalTime getTestTime() {
 		return testTime;
 	}
 
@@ -341,7 +344,7 @@ public final class TestDistribute extends BaseObject {
 	 *
 	 * @param testTime the test time
 	 */
-	public void setTestTime(Date testTime) {
+	public void setTestTime(LocalTime testTime) {
 		this.testTime = testTime;
 	}
 
@@ -350,7 +353,7 @@ public final class TestDistribute extends BaseObject {
 	 *
 	 * @return the test timestamp
 	 */
-	public Date getTestTimestamp() {
+	public LocalDateTime getTestTimestamp() {
 		return testTimestamp;
 	}
 
@@ -359,7 +362,7 @@ public final class TestDistribute extends BaseObject {
 	 *
 	 * @param testTimestamp the test timestamp
 	 */
-	public void setTestTimestamp(Date testTimestamp) {
+	public void setTestTimestamp(LocalDateTime testTimestamp) {
 		this.testTimestamp = testTimestamp;
 	}
 

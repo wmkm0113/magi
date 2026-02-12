@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+    <entry key="MSSQL2K_Dialect_Title">SQLServer 2000+</entry>
+    <entry key="MSSQL2K12_Dialect_Title">SQLServer 2012+</entry>
+    <entry key="MSSQL2K19_Dialect_Title">SQLServer 2019+</entry>
+    <entry key="MSSQL_Dialect_Description">SQL Server is a relational database management system developed and sold by Microsoft</entry>
+</properties>

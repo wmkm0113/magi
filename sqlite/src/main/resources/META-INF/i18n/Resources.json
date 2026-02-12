@@ -1,0 +1,22 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "messages": {
+    "en-US": {
+      "SQLite_Dialect_Title": {
+        "pattern": "SQLite"
+      },
+      "SQLite_Dialect_Description": {
+        "pattern": "SQLite is a C-language library that implements a small, fast, self-contained, high-reliability, full-featured, SQL database engine."
+      }
+    },
+    "zh-CN": {
+      "SQLite_Dialect_Title": {
+        "pattern": "SQLite"
+      },
+      "SQLite_Dialect_Description": {
+        "pattern": "SQLite是一个C语言库，它实现了一个小型、快速、独立、高可靠性、功能齐全的SQL数据库引擎。"
+      }
+    }
+  }
+}

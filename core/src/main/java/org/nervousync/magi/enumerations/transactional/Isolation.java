@@ -16,6 +16,8 @@
  */
 package org.nervousync.magi.enumerations.transactional;
 
+import org.intellij.lang.annotations.MagicConstant;
+
 import java.sql.Connection;
 
 /**
@@ -25,13 +27,14 @@ import java.sql.Connection;
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
  * @version $Revision: 1.0.0 $ $Date: Mar 30, 2016 15:52:00 $
  */
+@SuppressWarnings("unused")
 public enum Isolation {
 
 	/**
 	 * <span class="en-US">Default</span>
 	 * <span class="zh-CN">默认</span>
 	 */
-	DEFAULT(Connection.TRANSACTION_NONE),
+	DEFAULT(Connection.TRANSACTION_READ_COMMITTED),
 	/**
 	 * <span class="en-US">Read uncommitted</span>
 	 * <span class="zh-CN">读未提交</span>
@@ -60,6 +63,7 @@ public enum Isolation {
 	 * <span class="en-US">Transactional level code</span>
 	 * <span class="zh-CN">事务等级代码</span>
 	 */
+	@MagicConstant(valuesFromClass = Connection.class)
 	private final int transactionLevel;
 
 	/**
@@ -69,7 +73,7 @@ public enum Isolation {
 	 * @param transactionLevel <span class="en-US">Transactional level code</span>
 	 *                         <span class="zh-CN">事务等级代码</span>
 	 */
-	Isolation(int transactionLevel) {
+	Isolation(@MagicConstant(valuesFromClass = Connection.class) final int transactionLevel) {
 		this.transactionLevel = transactionLevel;
 	}
 
@@ -80,6 +84,7 @@ public enum Isolation {
 	 * @return <span class="en-US">Transactional level code</span>
 	 * <span class="zh-CN">事务等级代码</span>
 	 */
+	@MagicConstant(valuesFromClass = Connection.class)
 	public int value() {
 		return this.transactionLevel;
 	}

@@ -18,7 +18,7 @@
 package org.nervousync.magi.enumerations.sensitive;
 
 /**
- * <h2 class="en-US">Enumeration of Sensitive data type</h2>
+ * <h2 class="en-US">Enumeration of the sensitive data type</h2>
  * <h2 class="zh-CN">代码类型的枚举类</h2>
  *
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>

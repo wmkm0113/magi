@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+  ~ Licensed to the Nervousync Studio (NSYC) under one or more
+  ~ contributor license agreements. See the NOTICE file distributed with
+  ~ this work for additional information regarding copyright ownership.
+  ~ The ASF licenses this file to You under the Apache License, Version 2.0
+  ~ (the "License"); you may not use this file except in compliance with
+  ~ the License.  You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<xsd:schema xmlns="https://nervousync.org/schemas/magi" xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+			xmlns:brain="https://nervousync.org/schemas/brain" xmlns:cache="https://nervousync.org/schemas/cache"
+			targetNamespace="https://nervousync.org/schemas/magi" elementFormDefault="qualified" version="1.0">
+	<xsd:import namespace="https://nervousync.org/schemas/brain"
+				schemaLocation="https://nervousync.org/schemas/brain_config_1_0.xsd"/>
+	<xsd:import namespace="https://nervousync.org/schemas/cache"
+				schemaLocation="https://nervousync.org/schemas/cache_config_1_0.xsd"/>
+	<xsd:complexType name="storage_config">
+		<xsd:all>
+			<xsd:element name="base_path" type="xsd:string">
+				<xsd:annotation>
+					<xsd:documentation>The base path for system execution</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="storage_provider" type="xsd:string">
+				<xsd:annotation>
+					<xsd:documentation>Task store provider name to use</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="thread_limit" type="xsd:int" default="20">
+				<xsd:annotation>
+					<xsd:documentation>Number of tasks allowed to be executed simultaneously</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="expire_time" type="xsd:long" default="604800000">
+				<xsd:annotation>
+					<xsd:documentation>Expiration time for automatic deletion of completed tasks</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="last_modified" type="xsd:long">
+				<xsd:annotation>
+					<xsd:documentation>Last modified timestamp</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:all>
+	</xsd:complexType>
+	<xsd:complexType name="magi_config">
+		<xsd:all>
+			<xsd:element name="sensitive_tracker" type="xsd:string" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Class name of used sensitive data tracker implement class</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element ref="brain:brain_config">
+				<xsd:annotation>
+					<xsd:documentation>Data source configure information instance object</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="storage_config" type="storage_config" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Data import/export configure information</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element ref="cache:cache_config" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Cache configure information</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+			<xsd:element name="scan_packages" minOccurs="0">
+				<xsd:annotation>
+					<xsd:documentation>Package name string list, which can be a regular expression list</xsd:documentation>
+				</xsd:annotation>
+				<xsd:complexType>
+					<xsd:sequence>
+						<xsd:element name="package_name" type="xsd:string" minOccurs="0" maxOccurs="unbounded">
+							<xsd:annotation>
+								<xsd:documentation>Package name string</xsd:documentation>
+							</xsd:annotation>
+						</xsd:element>
+					</xsd:sequence>
+				</xsd:complexType>
+			</xsd:element>
+			<xsd:element name="last_modified" type="xsd:long">
+				<xsd:annotation>
+					<xsd:documentation>Last modified timestamp</xsd:documentation>
+				</xsd:annotation>
+			</xsd:element>
+		</xsd:all>
+	</xsd:complexType>
+	<xsd:element name="magi_config" type="magi_config" />
+</xsd:schema>

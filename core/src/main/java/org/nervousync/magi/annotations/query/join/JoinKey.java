@@ -17,36 +17,47 @@
 
 package org.nervousync.magi.annotations.query.join;
 
-import org.nervousync.enumerations.core.ConnectionCode;
+
+import org.nervousync.brain.enumerations.query.ConnectionCode;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 /**
- * <h2 class="en-US">The annotation of query join columns information</h2>
+ * <h2 class="en-US">The annotation of query join column information</h2>
  * <h2 class="zh-CN">关联数据列的注解</h2>
  *
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
  * @version $Revision: 1.0.0 $ $Date: Nov 15, 2023 15:21:18 $
  */
+@SuppressWarnings("unused")
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 public @interface JoinKey {
 
     /**
+     * <h3 class="en-US">Obtain the connection code</h3>
+     * <h3 class="zh-CN">获取连接代码</h3>
+     *
      * @return <span class="en-US">Connection code</span>
      * <span class="zh-CN">连接代码</span>
      */
 	ConnectionCode connection() default ConnectionCode.AND;
 
     /**
+     * <h3 class="en-US">Obtain the main table column information</h3>
+     * <h3 class="zh-CN">获取主表数据列</h3>
+     *
      * @return <span class="en-US">Main table column information</span>
      * <span class="zh-CN">主表数据列</span>
      */
 	String mainKey();
 
     /**
+     * <h3 class="en-US">Obtain the related table column information</h3>
+     * <h3 class="zh-CN">获取关联数据表数据列</h3>
+     *
      * @return <span class="en-US">Related table column information</span>
      * <span class="zh-CN">关联数据表数据列</span>
      */

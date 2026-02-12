@@ -34,12 +34,18 @@ import java.lang.annotation.*;
 public @interface Schema {
 
 	/**
+	 * <h3 class="en-US">Obtain the data source name</h3>
+	 * <h3 class="zh-CN">获取数据源名称</h3>
+	 *
 	 * @return <span class="en-US">Data source name</span>
 	 * <span class="zh-CN">数据源名称</span>
 	 */
 	String name();
 
 	/**
+	 * <h3 class="en-US">Obtain the data source dialect type enumeration value</h3>
+	 * <h3 class="zh-CN">获取数据源方言类型枚举值</h3>
+	 *
 	 * @return <span class="en-US">Data source dialect type enumeration value</span>
 	 * <span class="zh-CN">数据源方言类型枚举值</span>
 	 */

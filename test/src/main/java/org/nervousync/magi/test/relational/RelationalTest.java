@@ -18,32 +18,47 @@
 package org.nervousync.magi.test.relational;
 
 import jakarta.annotation.Nonnull;
-import org.nervousync.brain.configs.BrainConfigure;
 import org.nervousync.brain.configs.builder.BrainConfigureBuilder;
 import org.nervousync.brain.configs.builder.SchemaConfigBuilder;
 import org.nervousync.brain.enumerations.ddl.DDLType;
 import org.nervousync.brain.enumerations.query.JoinType;
 import org.nervousync.brain.query.QueryInfo;
+import org.nervousync.builder.ParentBuilder;
 import org.nervousync.commons.Globals;
-import org.nervousync.magi.query.builder.QueryBuilder;
+import org.nervousync.enumerations.beans.StringType;
+import org.nervousync.enumerations.security.EncodeType;
+import org.nervousync.magi.config.MagiConfigure;
+import org.nervousync.magi.config.builder.MagiConfigureBuilder;
+import org.nervousync.magi.query.builder.EntityQueryBuilder;
 import org.nervousync.magi.test.BaseTest;
 import org.nervousync.magi.test.relational.entity.RelationalReference;
 import org.nervousync.magi.test.relational.entity.TestRelational;
-import org.nervousync.utils.*;
+import org.nervousync.utils.core.BeanUtils;
+import org.nervousync.utils.core.DateTimeUtils;
+import org.nervousync.utils.core.FileUtils;
+import org.nervousync.utils.core.StringUtils;
+import org.nervousync.utils.security.SecurityUtils;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * <h2 class="en-US">Abstract class of relational database test instance</h2>
+ * <h2 class="zh-CN">关系型数据库测试抽象类</h2>
+ *
+ * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
+ * @version $Revision: 1.0.0 $ $Date: Nov 18, 2022 15:22:27 $
+ */
 public abstract class RelationalTest extends BaseTest<TestRelational> {
 
 	protected RelationalTest(@Nonnull final String dialectName, @Nonnull final String jdbcUrl,
-	                         @Nonnull final String serverAddress, final int serverPort, final boolean pooled,
+	                         @Nonnull final String serverAddress, final int serverPort,
+	                         @Nonnull final String catalog, final boolean pooled,
 	                         final String userName, final String passWord) throws Exception {
-		super(generateConfigure(dialectName, jdbcUrl, serverAddress, serverPort, pooled, userName, passWord),
+		super(generateConfigure(dialectName, jdbcUrl, serverAddress, serverPort, catalog, pooled, userName, passWord),
 				TestRelational.class, RelationalReference.class);
 	}
 
@@ -60,13 +75,10 @@ public abstract class RelationalTest extends BaseTest<TestRelational> {
 		testRelational.setTestBigDecimal(new BigDecimal(Math.PI));
 		testRelational.setTestBoolean(true);
 		testRelational.setTestByte((byte) 227);
-		testRelational.setTestDate(new Date());
 		testRelational.setTestDouble(227d);
 		testRelational.setTestFloat(227f);
 		testRelational.setTestInt(Short.parseShort("227"));
 		testRelational.setTestShort(Short.parseShort("227"));
-		testRelational.setTestTime(new Date());
-		testRelational.setTestTimestamp(new Date());
 
 		RelationalReference relationalReference = new RelationalReference();
 		relationalReference.getCompositeId().setCurrentTime(DateTimeUtils.currentUTCTimeMillis());
@@ -92,15 +104,15 @@ public abstract class RelationalTest extends BaseTest<TestRelational> {
 
 	@Override
 	protected final void verifyRetrieve(TestRelational mainObject) {
-		this.logger.info("Test_Retrieve_Record", mainObject.toFormattedJson());
-		String md5 = ConvertUtils.toHex(SecurityUtils.SHA256(mainObject.getMsgBytes()));
-		this.logger.info("Test_Retrieve_Verify", md5.equals(RESOURCE_VALIDATE));
-		this.logger.info("Test_Retrieve_Reference", mainObject.getRelationalReference().toFormattedJson());
+		this.logger.info("Test_Retrieve_Record", BeanUtils.objectToString(mainObject, StringType.JSON));
+		String sha256 = SecurityUtils.SHA256(mainObject.getMsgBytes(), EncodeType.HEX);
+		this.logger.info("Test_Retrieve_Verify", RESOURCE_VALIDATE.equalsIgnoreCase(sha256));
+		this.logger.info("Test_Retrieve_Reference", BeanUtils.objectToString(mainObject.getRelationalReference(), StringType.JSON));
 	}
 
 	@Override
 	protected final TestRelational modifyObject(TestRelational mainObject) {
-		this.logger.info("Test_Update_Record", mainObject.toFormattedJson());
+		this.logger.info("Test_Update_Record", BeanUtils.objectToString(mainObject, StringType.JSON));
 		mainObject.setMsgTitle("Update title");
 		Optional.ofNullable(mainObject.getRelationalReference())
 				.ifPresent(relationalReference -> relationalReference.setRefStatue(2));
@@ -109,38 +121,42 @@ public abstract class RelationalTest extends BaseTest<TestRelational> {
 
 	@Override
 	protected final QueryInfo queryInfo() throws Exception {
-		return QueryBuilder.newBuilder(TestRelational.class)
-				.joinTable(JoinType.LEFT, TestRelational.class, RelationalReference.class, Globals.DEFAULT_VALUE_STRING)
-				.equalTo(RelationalReference.class, "refStatue", 2)
-				.configPager(2, 5)
-				.useCache(Boolean.TRUE)
-				.confirm();
+		return EntityQueryBuilder.newBuilder(TestRelational.class)
+				.joins()
+				.referenceJoin(JoinType.LEFT, TestRelational.class, RelationalReference.class, "ref").confirm()
+				.where()
+				.equalTo(RelationalReference.class, "refStatue").matchValue(2).confirm()
+				.confirm()
+				.pager(2, 5)
+				.useCache()
+				.build();
 	}
 
 	@Override
 	protected final void verifyQueryRecord(int index, TestRelational mainObject) {
-		this.logger.info("Test_Query_Record", index, mainObject.toFormattedJson());
+		this.logger.info("Test_Query_Record", index, BeanUtils.objectToString(mainObject, StringType.JSON));
 	}
 
-	private static BrainConfigure generateConfigure(final String dialectName, final String jdbcUrl,
-	                                           final String serverAddress, final int serverPort, final boolean pooled,
-	                                           final String userName, final String passWord) throws Exception {
-		SchemaConfigBuilder.JdbcConfigBuilder configBuilder = BrainConfigureBuilder.newBuilder()
-				.configDDL(DDLType.CREATE)
-				.jdbcConfig("JDBC")
-				.dialect(dialectName)
-				.addServer(serverAddress, serverPort, Globals.INITIALIZE_INT_VALUE)
-				.jdbcUrl(jdbcUrl)
-				.connectionPool(pooled, 2, 10)
-				.lowQuery(1000)
-				.timeout(1, 1)
-				.retry(3, 500L);
+	private static MagiConfigure generateConfigure(final String dialectName, final String jdbcUrl,
+	                                               final String serverAddress, final int serverPort,
+												   @Nonnull final String catalog, final boolean pooled,
+	                                               final String userName, final String passWord) {
+		SchemaConfigBuilder.JdbcConfigBuilder<BrainConfigureBuilder<MagiConfigureBuilder<ParentBuilder>>> configBuilder =
+				MagiConfigureBuilder.newBuilder(null, null).brainBuilder()
+						.ddlMode(DDLType.SYNCHRONIZE)
+						.jdbcConfig("JDBC")
+						.dialect(dialectName)
+						.serverBuilder(serverAddress, serverPort)
+						.confirm()
+						.jdbcUrl(jdbcUrl)
+						.catalog(catalog)
+						.connectionPool(pooled, 2, 10)
+						.lowQuery(1000)
+						.timeout(2, 2)
+						.retry(3, 500L);
 		if (StringUtils.notBlank(userName)) {
-			configBuilder.userAuthenticationBuilder().authenticate(userName, passWord)
-					.confirmParent(SchemaConfigBuilder.JdbcConfigBuilder.class);
+			configBuilder = configBuilder.basicAuth(userName, passWord);
 		}
-		return configBuilder.confirmParent(BrainConfigureBuilder.class)
-				.defaultSchema("JDBC")
-				.confirm();
+		return configBuilder.confirm().defaultSchema("JDBC").confirm().build();
 	}
 }

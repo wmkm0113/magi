@@ -20,7 +20,7 @@ package org.nervousync.magi.interceptors;
 import net.bytebuddy.asm.Advice;
 import org.nervousync.magi.entity.BaseObject;
 import org.nervousync.magi.entity.EntityFactory;
-import org.nervousync.utils.ReflectionUtils;
+import org.nervousync.utils.core.ReflectionUtils;
 
 import java.lang.reflect.Method;
 
@@ -31,6 +31,7 @@ import java.lang.reflect.Method;
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
  * @version $Revision: 1.0.0 $ $Date: Mar 30, 2016 17:46:19 $
  */
+@SuppressWarnings("unused")
 public final class LazyLoadInterceptor {
 
 	/**

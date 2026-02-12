@@ -1,0 +1,66 @@
+{
+  "groupId": "org.nervousync",
+  "bundle": "magi",
+  "errors": {
+    "0x00DB00010001": "Entity_Class_Is_Null",
+    "0x00DB00010002": "Entity_Annotation_Not_Found",
+    "0x00DB00010003": "Duplicate_Primary_Key_Found",
+    "0x00DB00010004": "Reference_Target_Entity_Found",
+    "0x00DB00010005": "Entity_Config_Not_Found",
+    "0x00DB00010006": "Data_Source_Not_Found",
+    "0x00DB00010007": "Entity_Factory_Not_Initialized",
+    "0x00DB00010008": "Entity_Persistence_Detached",
+    "0x00DB00010009": "Entity_Persistence_Attached",
+    "0x00DB00010010": "Entity_Persistence_ReadOnly",
+    "0x00DB00010011": "Entity_Refresh_Error",
+    "0x00DB00010012": "Query_Table_Not_Found",
+    "0x00DB00010013": "Query_Pager_Parameter_Invalid",
+    "0x00DB00010014": "Query_Join_Exist",
+    "0x00DB00010015": "Query_Reference_Not_Found",
+    "0x00DB00010016": "Query_Item_Exist",
+    "0x00DB00010017": "Query_Order_By_Exist",
+    "0x00DB00010018": "Query_Group_By_Exist",
+    "0x00DB00010019": "Query_Schema_Not_Matched",
+    "0x00DB0001001A": "Query_Driven_Table_Not_Found",
+    "0x00DB00010020": "Query_Entity_Not_Exist",
+    "0x00DB00010021": "Optimistic_Version_Not_Exist",
+    "0x00DB00010022": "Insert_Operate_Error",
+    "0x00DB00010023": "Update_Operate_Error",
+    "0x00DB00010024": "Delete_Operate_Error",
+    "0x00DB00010025": "Query_Details_Error",
+    "0x00DB00010026": "Exists_Alias_Name",
+    "0x00DB00010027": "Join_Condition_Not_Allowed",
+    "0x00DB00010028": "Join_Key_Is_Null",
+    "0x00DB00010029": "Query_Column_Not_Found"
+  },
+  "messages": {
+    "en-US": {
+      "Query_Cache_Debug": {
+        "pattern": "Query cache information: {0}"
+      },
+      "Lazy_Load_Field_Debug": {
+        "pattern": "Read lazy load field information! Entity class: {0}, field name: {1}"
+      },
+      "Date_Type_Warning": {
+        "pattern": "Current column type is : {0} suggest using {1} instead of {2}"
+      },
+      "Transactional_Init_Error": {
+        "pattern": "Initialize transactional configure error! "
+      }
+    },
+    "zh-CN": {
+      "Query_Cache_Debug": {
+        "pattern": "查询信息缓存: {0}"
+      },
+      "Lazy_Load_Field_Debug": {
+        "pattern": "读取懒加载属性信息！实体类：{0}，属性名：{1}"
+      },
+      "Date_Type_Warning": {
+        "pattern": "当前数据列类型为：{0}，建议使用 {1} 替代 {2}"
+      },
+      "Transactional_Init_Error": {
+        "pattern": "初始化事务配置出错！"
+      }
+    }
+  }
+}

@@ -11,16 +11,14 @@ package org.nervousync.magi.test.relational.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.EmbeddedId;
 import jakarta.persistence.Table;
-import org.nervousync.brain.enumerations.ddl.GenerationType;
-import org.nervousync.magi.annotations.table.GeneratedData;
 import org.nervousync.magi.entity.BaseObject;
 import org.nervousync.magi.entity.CompositeId;
-import org.nervousync.utils.DateTimeUtils;
 
 /**
- * @author Steven Wee	<a href="mailto:wmkm0113@Hotmail.com">wmkm0113@Hotmail.com</a>
- * @version $Revision : 1.0 $ $Date: 3/16/2021 03:12 PM $
+ * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
+ * @version $Revision: 1.0 $ $Date: 3/16/2021 03:12 PM $
  */
+@SuppressWarnings("unused")
 @Table(name = "Relational_Reference")
 public class RelationalReference extends BaseObject {
 
@@ -42,15 +40,6 @@ public class RelationalReference extends BaseObject {
 	 */
 	public RelationalReference() {
 		this.compositeId = new ReferenceCompositeId();
-	}
-
-	/**
-	 * Gets serial version uid.
-	 *
-	 * @return the serial version uid
-	 */
-	public static long getSerialVersionUID() {
-		return serialVersionUID;
 	}
 
 	public ReferenceCompositeId getCompositeId() {
