@@ -1,8 +1,8 @@
 # The Magi DataCenter Platform
 
-[![Maven Central](https://img.shields.io/maven-central/v/org.nervousync/magi-jdk11?color=green&label=Release)](https://mvnrepository.com/artifact/org.nervousync/magi-jdk11)
-![Maven Snapshot](https://img.shields.io/maven-metadata/v?label=Snapshot&metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Forg%2Fnervousync%2Fmagi-jdk11%2Fmaven-metadata.xml)
-[![License](https://img.shields.io/github/license/wmkm0113/magi-jdk11)](https://github.com/wmkm0113/magi-jdk11/blob/mainline/LICENSE)
+[![Maven Central](https://img.shields.io/maven-central/v/org.nervousync/magi?color=green&label=Release)](https://mvnrepository.com/artifact/org.nervousync/magi)
+![Maven Snapshot](https://img.shields.io/maven-metadata/v?label=Snapshot&metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Forg%2Fnervousync%2Fmagi%2Fmaven-metadata.xml)
+[![License](https://img.shields.io/github/license/wmkm0113/magi)](https://github.com/wmkm0113/magi/blob/mainline/LICENSE)
 ![Language](https://img.shields.io/badge/language-Java-green)
 [![Twitter:wmkm0113](https://img.shields.io/twitter/follow/wmkm0113?label=Follow)](https://twitter.com/wmkm0113)
 
@@ -513,7 +513,7 @@ For customized special features, please send an email directly to [wmkm0113\@gma
 ## Donations
 To support this project, you can make a donation to:
 
-* Bitcoin address: bc1ql7elx2j625x7f9tvax90v6zgwp55wy7uawtdtz
-* Ethereum address: 0xd88a49056E6ECE59e89c7e5724729A0FB0872986
-* Solana address: GSwycoeVZHRW72TcvW38qLfqsWhFbwDbxamaEuwEwQjW
-* BNB address: 0xd88a49056E6ECE59e89c7e5724729A0FB0872986
+- Bitcoin address: bc1q3nfj9gafu3x25ea260g7cyhh5s9gnx347tznsf
+- Ethereum address: 0x849D143e943bAA6Dd078d02ebAEc205E2b00a7CA
+- Solana address: 4Fvujk8DEkVAtYwzim1vrobNm4s72Ra6Xrsu83v2hqE2
+- BNB address: 0x849D143e943bAA6Dd078d02ebAEc205E2b00a7CA

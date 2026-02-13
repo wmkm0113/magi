@@ -37,3 +37,4 @@ bin/
 /nodeps/target/
 /target/
 */target/
+/all/dependency-reduced-pom.xml
