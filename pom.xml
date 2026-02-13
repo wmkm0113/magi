@@ -55,10 +55,19 @@
 	</developers>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<argLine>-Dfile.encoding=UTF-8</argLine>
+		<maven.compiler.version>3.15.0</maven.compiler.version>
+		<maven.jar.version>3.5.0</maven.jar.version>
+		<maven.surefire.version>3.5.4</maven.surefire.version>
+		<maven.resource.version>3.4.0</maven.resource.version>
+		<maven.source.version>3.4.0</maven.source.version>
+		<maven.javadoc.version>3.12.0</maven.javadoc.version>
+		<maven.gpg.version>3.2.8</maven.gpg.version>
 		<maven.compiler.source>11</maven.compiler.source>
 		<maven.compiler.target>11</maven.compiler.target>
 		<junit.jupiter.version>5.14.2</junit.jupiter.version>
+		<nervousync.brain.version>1.0.0</nervousync.brain.version>
+		<nervousync.cache.version>1.2.0</nervousync.cache.version>
+		<nervousync.utils.version>1.3.0.1</nervousync.utils.version>
 	</properties>
 	<modules>
 		<module>core</module>
@@ -80,14 +89,14 @@
 			<dependency>
 				<groupId>org.nervousync</groupId>
 				<artifactId>utils-bom</artifactId>
-				<version>1.3.0.1</version>
+				<version>${nervousync.utils.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
 			<dependency>
 				<groupId>org.nervousync</groupId>
 				<artifactId>cache-bom</artifactId>
-				<version>1.2.0</version>
+				<version>${nervousync.cache.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -99,7 +108,7 @@
 			<dependency>
 				<groupId>org.nervousync</groupId>
 				<artifactId>brain</artifactId>
-				<version>1.0.0</version>
+				<version>${nervousync.brain.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>org.nervousync</groupId>

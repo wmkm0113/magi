@@ -1,7 +1,7 @@
 # 三圣贤数据中心平台
 
-[![Maven Central](https://img.shields.io/maven-central/v/org.nervousync/magi?color=green&label=Release)](https://mvnrepository.com/artifact/org.nervousync/magi)
-![Maven Snapshot](https://img.shields.io/maven-metadata/v?label=Snapshot&metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Forg%2Fnervousync%2Fmagi%2Fmaven-metadata.xml)
+[![Maven Central](https://img.shields.io/maven-central/v/org.nervousync/magi-bom?color=green&label=Release)](https://mvnrepository.com/artifact/org.nervousync/magi-bom)
+![Maven Snapshot](https://img.shields.io/maven-metadata/v?label=Snapshot&metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Forg%2Fnervousync%2Fmagi-bom%2Fmaven-metadata.xml)
 [![License](https://img.shields.io/github/license/wmkm0113/magi)](https://github.com/wmkm0113/magi/blob/mainline/LICENSE)
 ![Language](https://img.shields.io/badge/language-Java-green)
 [![Twitter:wmkm0113](https://img.shields.io/twitter/follow/wmkm0113?label=Follow)](https://twitter.com/wmkm0113)

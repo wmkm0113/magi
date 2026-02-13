@@ -1,7 +1,7 @@
 # 三聖賢數據中心平台
 
-[![Maven Central](https://img.shields.io/maven-central/v/org.nervousync/magi?color=green&label=Release)](https://mvnrepository.com/artifact/org.nervousync/magi)
-![Maven Snapshot](https://img.shields.io/maven-metadata/v?label=Snapshot&metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Forg%2Fnervousync%2Fmagi%2Fmaven-metadata.xml)
+[![Maven Central](https://img.shields.io/maven-central/v/org.nervousync/magi-bom?color=green&label=Release)](https://mvnrepository.com/artifact/org.nervousync/magi-bom)
+![Maven Snapshot](https://img.shields.io/maven-metadata/v?label=Snapshot&metadataUrl=https%3A%2F%2Fcentral.sonatype.com%2Frepository%2Fmaven-snapshots%2Forg%2Fnervousync%2Fmagi-bom%2Fmaven-metadata.xml)
 [![License](https://img.shields.io/github/license/wmkm0113/magi)](https://github.com/wmkm0113/magi/blob/mainline/LICENSE)
 ![Language](https://img.shields.io/badge/language-Java-green)
 [![Twitter:wmkm0113](https://img.shields.io/twitter/follow/wmkm0113?label=Follow)](https://twitter.com/wmkm0113)
@@ -488,7 +488,7 @@ libraryDependencies += "org.nervousync" % "magi-mongodb-jdk11" % "${version}" % 
 ## 捐款
 為了支持此項目，您可以向以下地址捐款：
 
-* 比特幣地址: bc1q3nfj9gafu3x25ea260g7cyhh5s9gnx347tznsf
-* 以太坊地址: 0x849D143e943bAA6Dd078d02ebAEc205E2b00a7CA
-* Solana 地址: 4Fvujk8DEkVAtYwzim1vrobNm4s72Ra6Xrsu83v2hqE2
-* BNB 地址: 0x849D143e943bAA6Dd078d02ebAEc205E2b00a7CA
+- 比特幣地址: bc1q3nfj9gafu3x25ea260g7cyhh5s9gnx347tznsf
+- 以太坊地址: 0x849D143e943bAA6Dd078d02ebAEc205E2b00a7CA
+- Solana 地址: 4Fvujk8DEkVAtYwzim1vrobNm4s72Ra6Xrsu83v2hqE2
+- BNB 地址: 0x849D143e943bAA6Dd078d02ebAEc205E2b00a7CA
