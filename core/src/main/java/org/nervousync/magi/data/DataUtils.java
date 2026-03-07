@@ -21,11 +21,13 @@ import jakarta.persistence.LockModeType;
 import org.nervousync.annotations.provider.Provider;
 import org.nervousync.brain.commons.BrainCommons;
 import org.nervousync.brain.configs.transactional.TransactionalConfig;
+import org.nervousync.brain.enumerations.transactional.Propagation;
 import org.nervousync.brain.exceptions.data.DropException;
 import org.nervousync.brain.exceptions.data.InsertException;
 import org.nervousync.brain.exceptions.data.UpdateException;
 import org.nervousync.brain.query.QueryInfo;
 import org.nervousync.brain.source.BrainDataSource;
+import org.nervousync.brain.transactional.TransactionalProxy;
 import org.nervousync.commons.Globals;
 import org.nervousync.enumerations.beans.StringType;
 import org.nervousync.enumerations.security.EncodeType;
@@ -239,7 +241,7 @@ public final class DataUtils {
     }
 
     /**
-     * <h3 class="en-US">Destroy current instance</h3>
+     * <h3 class="en-US">Destroy the current instance</h3>
      * <h3 class="zh-CN">销毁当前实例</h3>
      */
     public static void destroy() {
@@ -1425,51 +1427,55 @@ public final class DataUtils {
         public void process() throws Exception {
             Class<?>[] rollbackClasses = new Class[]{InsertException.class, UpdateException.class, DropException.class};
             TransactionalConfig txConfig = this.transactional
-                    ? TransactionalConfig.newInstance(this.timeout, Connection.TRANSACTION_READ_COMMITTED, rollbackClasses)
+                    ? TransactionalConfig.newInstance(Propagation.REQUIRED, this.timeout, Connection.TRANSACTION_READ_COMMITTED, rollbackClasses)
                     : null;
             BrainDataSource dataSource = BrainDataSource.getInstance();
+            boolean newTransactional = true;
             if (txConfig != null) {
-                dataSource.initTransactional(txConfig);
+                newTransactional = TransactionalProxy.getTransactionalManager().begin(txConfig);
             }
             byte[] intBuffer = new byte[4];
             byte[] readBuffer;
-            while (this.dataFile.getFilePointer() < this.endPosition) {
-                boolean success = Boolean.FALSE;
-                if (this.dataFile.read(intBuffer) == 4) {
-                    int dataLength = RawUtils.readInt(intBuffer, ByteOrder.LITTLE_ENDIAN);
-                    if (dataLength > 0) {
-                        readBuffer = new byte[dataLength];
-                        if (this.dataFile.read(readBuffer) == dataLength) {
-                            DataRecord dataRecord = DataRecord.fromBytes(this.recordTypes, readBuffer);
-                            if (dataRecord != null) {
-                                try {
+            try {
+                while (this.dataFile.getFilePointer() < this.endPosition) {
+                    boolean success = Boolean.FALSE;
+                    if (this.dataFile.read(intBuffer) == 4) {
+                        int dataLength = RawUtils.readInt(intBuffer, ByteOrder.LITTLE_ENDIAN);
+                        if (dataLength > 0) {
+                            readBuffer = new byte[dataLength];
+                            if (this.dataFile.read(readBuffer) == dataLength) {
+                                DataRecord dataRecord = DataRecord.fromBytes(this.recordTypes, readBuffer);
+                                if (dataRecord != null) {
                                     this.process(dataSource, dataRecord);
                                     success = Boolean.TRUE;
-                                } catch (Exception e) {
-                                    if (txConfig != null) {
-                                        dataSource.rollback(e);
-                                        break;
-                                    }
                                 }
                             }
                         }
+                    } else {
+                        throw new DataParseException(0x00DB00000008L, this.dataFile.getFilePointer());
                     }
-                } else {
-                    throw new DataParseException(0x00DB00000008L, this.dataFile.getFilePointer());
+                    if (success) {
+                        this.successCount++;
+                    } else {
+                        this.failedCount++;
+                    }
                 }
-                if (success) {
-                    this.successCount++;
-                } else {
-                    this.failedCount++;
+                if (txConfig != null) {
+                    TransactionalProxy.getTransactionalManager().commit(newTransactional);
                 }
-            }
-            if (txConfig != null) {
-                dataSource.endTransactional();
+            } catch (Exception e) {
+                if (txConfig != null) {
+                    TransactionalProxy.getTransactionalManager().rollback(e);
+                }
+            } finally {
+                if (txConfig != null) {
+                    TransactionalProxy.getTransactionalManager().end(newTransactional);
+                }
             }
         }
 
         /**
-         * <h3 class="en-US">Has error when processing data file</h3>
+         * <h3 class="en-US">Has error when processing the data file</h3>
          * <h3 class="zh-CN">处理数据文件过程中出现错误</h3>
          *
          * @return <span class="en-US">Has error status</span>

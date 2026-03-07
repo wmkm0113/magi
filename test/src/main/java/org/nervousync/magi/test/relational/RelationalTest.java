@@ -125,7 +125,7 @@ public abstract class RelationalTest extends BaseTest<TestRelational> {
 				.joins()
 				.referenceJoin(JoinType.LEFT, TestRelational.class, RelationalReference.class, "ref").confirm()
 				.where()
-				.equalTo(RelationalReference.class, "refStatue").matchValue(2).confirm()
+				.equalTo(RelationalReference.class, "refStatue").matchValue(1).confirm()
 				.confirm()
 				.pager(2, 5)
 				.useCache()

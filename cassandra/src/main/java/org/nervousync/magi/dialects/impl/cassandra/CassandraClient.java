@@ -27,13 +27,13 @@ import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import com.datastax.oss.driver.api.core.type.codec.ExtraTypeCodecs;
 import com.datastax.oss.driver.api.core.type.codec.TypeCodecs;
 import jakarta.annotation.Nonnull;
+import org.jetbrains.annotations.NotNull;
 import org.nervousync.brain.command.GeneratedCommand;
 import org.nervousync.brain.commons.BrainCommons;
 import org.nervousync.brain.configs.auth.impl.UserAuthentication;
 import org.nervousync.brain.configs.schema.impl.DistributeSchemaConfig;
 import org.nervousync.brain.configs.secure.TrustStore;
 import org.nervousync.brain.configs.server.ServerInfo;
-import org.nervousync.brain.configs.transactional.TransactionalConfig;
 import org.nervousync.brain.defines.ColumnDefine;
 import org.nervousync.brain.defines.IndexDefine;
 import org.nervousync.brain.defines.TableDefine;
@@ -44,6 +44,8 @@ import org.nervousync.brain.exceptions.data.RetrieveException;
 import org.nervousync.brain.exceptions.sql.MultilingualSQLException;
 import org.nervousync.brain.query.PartialCollection;
 import org.nervousync.brain.query.QueryInfo;
+import org.nervousync.brain.transactional.TransactionalProxy;
+import org.nervousync.brain.transactional.impl.TransactionalContext;
 import org.nervousync.commons.Globals;
 import org.nervousync.enumerations.beans.StringType;
 import org.nervousync.utils.cert.CertificateUtils;
@@ -68,7 +70,7 @@ import java.util.*;
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
  * @version $Revision: 1.0.0 $ $Date: Nov 18, 2022 10:08:19 $
  */
-public final class CassandraClient implements DistributeClient {
+public final class CassandraClient implements DistributeClient<BatchStatementBuilder> {
 
 	/**
 	 * <span class="en-US">Logger instance</span>
@@ -85,6 +87,7 @@ public final class CassandraClient implements DistributeClient {
 	 * <span class="zh-CN">Cassandra 连接实例对象</span>
 	 */
 	private final CqlSession cqlSession;
+	private final String schemaName;
 	/**
 	 * <span class="en-US">Default keyspace name</span>
 	 * <span class="zh-CN">默认键空间</span>
@@ -115,11 +118,6 @@ public final class CassandraClient implements DistributeClient {
 	 * <span class="zh-CN">缓存的查询分析器映射表</span>
 	 */
 	private final Hashtable<Integer, SimpleStatementBuilder> cachedStatements;
-	/**
-	 * <span class="en-US">Database connection used by the current thread</span>
-	 * <span class="zh-CN">当前线程使用的数据库连接</span>
-	 */
-	private final ThreadLocal<BatchStatementBuilder> threadLocal;
 
 	/**
 	 * <h3 class="en-US">Constructor method for Cassandra database client implementation class</h3>
@@ -135,6 +133,7 @@ public final class CassandraClient implements DistributeClient {
 	CassandraClient(@Nonnull final CassandraDialectImpl dialect, @Nonnull final DistributeSchemaConfig schemaConfig)
 			throws Exception {
 		this.dialect = dialect;
+		this.schemaName = schemaConfig.getSchemaName();
 		this.keyspaceName = schemaConfig.getDatabaseName();
 		List<InetSocketAddress> serverAddressList = new ArrayList<>();
 		List<ServerInfo> serverList = schemaConfig.getServerList();
@@ -196,7 +195,6 @@ public final class CassandraClient implements DistributeClient {
 		this.lowQueryTimeout = schemaConfig.getLowQueryTimeout();
 		this.cachedLimitSize = schemaConfig.getCachedLimitSize();
 		this.cachedStatements = new Hashtable<>();
-		this.threadLocal = new ThreadLocal<>();
 		this.cqlSession.getMetadata()
 				.getKeyspaces()
 				.keySet()
@@ -208,25 +206,22 @@ public final class CassandraClient implements DistributeClient {
 	}
 
 	@Override
-	public void beginTransactional(final TransactionalConfig transactionalConfig) {
-		if (this.threadLocal.get() == null) {
-			this.threadLocal.set(BatchStatement.builder(BatchType.LOGGED));
+	public void rollback(@Nonnull final BatchStatementBuilder builder) {
+		if (TransactionalProxy.getTransactionalManager().inTransactional()) {
+			builder.clearStatements();
 		}
 	}
 
 	@Override
-	public void rollback() {
-		this.threadLocal.get().clearStatements();
+	public void commit(@Nonnull final BatchStatementBuilder builder) {
+		if (TransactionalProxy.getTransactionalManager().inTransactional()) {
+			this.cqlSession.execute(builder.build());
+		}
 	}
 
 	@Override
-	public void commit() {
-		this.cqlSession.execute(this.threadLocal.get().build());
-	}
-
-	@Override
-	public void clearTransactional() {
-		this.threadLocal.remove();
+	public void endTransactional(@NotNull final BatchStatementBuilder object) {
+		object.clearStatements();
 	}
 
 	@Override
@@ -573,11 +568,17 @@ public final class CassandraClient implements DistributeClient {
 	private void execute(final GeneratedCommand generatedCommand) {
 		Optional.ofNullable(this.statement(generatedCommand))
 				.ifPresent(statement -> {
-					BatchStatementBuilder statementBuilder = this.threadLocal.get();
-					if (statementBuilder == null) {
-						this.cqlSession.execute(statement);
-					} else {
+					if (TransactionalProxy.getTransactionalManager().inTransactional()) {
+						TransactionalContext transactionalContext = TransactionalProxy.getTransactionalManager().get();
+						BatchStatementBuilder statementBuilder =
+								transactionalContext.get(this.schemaName, BatchStatementBuilder.class);
+						if (statementBuilder == null) {
+							statementBuilder = BatchStatement.builder(BatchType.LOGGED);
+							transactionalContext.bind(this.schemaName, statementBuilder);
+						}
 						statementBuilder.addStatement(statement);
+					} else {
+						this.cqlSession.execute(statement);
 					}
 				});
 	}

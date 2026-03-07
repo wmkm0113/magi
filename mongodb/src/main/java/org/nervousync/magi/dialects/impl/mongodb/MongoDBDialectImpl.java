@@ -17,6 +17,7 @@
 
 package org.nervousync.magi.dialects.impl.mongodb;
 
+import com.mongodb.client.ClientSession;
 import org.nervousync.annotations.provider.Provider;
 import org.nervousync.brain.annotations.dialect.DataType;
 import org.nervousync.brain.annotations.dialect.SchemaDialect;
@@ -67,7 +68,7 @@ import java.util.Map;
 		@DataType(code = Types.NCLOB, type = "text"),
 		@DataType(code = Types.LONGNVARCHAR, type = "text")
 })
-public final class MongoDBDialectImpl extends DistributeDialect {
+public final class MongoDBDialectImpl extends DistributeDialect<ClientSession> {
 
 	/**
 	 * <h3 class="en-US">Constructor method for MongoDB database dialect implementation class</h3>
@@ -77,10 +78,11 @@ public final class MongoDBDialectImpl extends DistributeDialect {
 	 *                          <span class="zh-CN">如果实现类未找到SchemaDialect注解</span>
 	 */
 	public MongoDBDialectImpl() throws DialectException {
+		super(ClientSession.class);
 	}
 
 	@Override
-	public DistributeClient newClient(final DistributeSchemaConfig schemaConfig) throws Exception {
+	public DistributeClient<ClientSession> newClient(final DistributeSchemaConfig schemaConfig) throws Exception {
 		return new MongoDBClient(this, schemaConfig);
 	}
 

@@ -64,6 +64,8 @@ import org.nervousync.brain.query.param.AbstractParameter;
 import org.nervousync.brain.query.param.impl.ArraysParameter;
 import org.nervousync.brain.query.param.impl.ConstantParameter;
 import org.nervousync.brain.query.param.impl.RangesParameter;
+import org.nervousync.brain.transactional.TransactionalProxy;
+import org.nervousync.brain.transactional.impl.TransactionalContext;
 import org.nervousync.commons.Globals;
 import org.nervousync.magi.entity.EntityFactory;
 import org.nervousync.utils.cert.CertificateUtils;
@@ -86,8 +88,9 @@ import java.util.concurrent.TimeUnit;
  * @author Steven Wee	<a href="mailto:wmkm0113@gmail.com">wmkm0113@gmail.com</a>
  * @version $Revision: 1.0.0 $ $Date: Nov 18, 2022 15:22:27 $
  */
-public final class MongoDBClient implements DistributeClient {
+public final class MongoDBClient implements DistributeClient<ClientSession> {
 
+	private final String schemaName;
 	/**
 	 * <span class="en-US">Default database name</span>
 	 * <span class="zh-CN">默认数据库名</span>
@@ -103,11 +106,6 @@ public final class MongoDBClient implements DistributeClient {
 	 * <span class="zh-CN">MongoDB客户端实例对象</span>
 	 */
 	private final MongoClient mongoClient;
-	/**
-	 * <span class="en-US">Database connection used by the current thread</span>
-	 * <span class="zh-CN">当前线程使用的数据库连接</span>
-	 */
-	private final ThreadLocal<ClientSession> threadLocal;
 
 	/**
 	 * <h3 class="en-US">Constructor method for MongoDB database client implementation class</h3>
@@ -208,10 +206,10 @@ public final class MongoDBClient implements DistributeClient {
 									builder.invalidHostNameAllowed(Boolean.FALSE).context(sslContext)));
 		}
 
+		this.schemaName = schemaConfig.getSchemaName();
 		this.databaseName = schemaConfig.getDatabaseName();
 		this.dialect = dialect;
 		this.mongoClient = MongoClients.create(settingsBuilder.build());
-		this.threadLocal = new ThreadLocal<>();
 	}
 
 	@Override
@@ -219,48 +217,18 @@ public final class MongoDBClient implements DistributeClient {
 	}
 
 	@Override
-	public void beginTransactional(final TransactionalConfig transactionalConfig) {
-		if (this.threadLocal.get() != null || transactionalConfig == null
-				|| transactionalConfig.getIsolation() == Connection.TRANSACTION_NONE) {
-			return;
-		}
-
-		TransactionOptions.Builder txOptionBuilder =
-				TransactionOptions.builder().maxCommitTime((long) transactionalConfig.getTimeout(), TimeUnit.SECONDS)
-						.readPreference(ReadPreference.primary()).writeConcern(WriteConcern.MAJORITY);
-		switch (transactionalConfig.getIsolation()) {
-			case Connection.TRANSACTION_READ_UNCOMMITTED:
-				txOptionBuilder.readConcern(ReadConcern.LOCAL);
-				break;
-			case Connection.TRANSACTION_READ_COMMITTED:
-				txOptionBuilder.readConcern(ReadConcern.MAJORITY);
-				break;
-			case Connection.TRANSACTION_REPEATABLE_READ:
-				txOptionBuilder.readConcern(ReadConcern.SNAPSHOT);
-				break;
-			case Connection.TRANSACTION_SERIALIZABLE:
-				txOptionBuilder.readConcern(ReadConcern.LINEARIZABLE);
-				break;
-		}
-
-		ClientSession clientSession = this.mongoClient.startSession();
-		clientSession.startTransaction(txOptionBuilder.build());
-		this.threadLocal.set(clientSession);
+	public void rollback(@Nonnull final ClientSession session) {
+		session.abortTransaction();
 	}
 
 	@Override
-	public void rollback() {
-		Optional.ofNullable(this.threadLocal.get()).ifPresent(ClientSession::abortTransaction);
+	public void commit(@Nonnull final ClientSession session) {
+		session.commitTransaction();
 	}
 
 	@Override
-	public void commit() {
-		Optional.ofNullable(this.threadLocal.get()).ifPresent(ClientSession::commitTransaction);
-	}
-
-	@Override
-	public void clearTransactional() {
-		this.threadLocal.remove();
+	public void endTransactional(@Nonnull final ClientSession session) {
+		session.close();
 	}
 
 	@Override
@@ -297,13 +265,48 @@ public final class MongoDBClient implements DistributeClient {
 		return Boolean.TRUE;
 	}
 
+	private ClientSession clientSession() {
+		ClientSession session = null;
+		if (TransactionalProxy.getTransactionalManager().inTransactional()) {
+			TransactionalContext transactionalContext = TransactionalProxy.getTransactionalManager().get();
+			if (transactionalContext != null) {
+				session = transactionalContext.get(this.schemaName, ClientSession.class);
+				if (session == null) {
+					TransactionalConfig transactionalConfig = transactionalContext.getTransactionalConfig();
+					TransactionOptions.Builder txOptionBuilder =
+							TransactionOptions.builder().maxCommitTime((long) transactionalConfig.getTimeout(), TimeUnit.SECONDS)
+									.readPreference(ReadPreference.primary()).writeConcern(WriteConcern.MAJORITY);
+					switch (transactionalConfig.getIsolation()) {
+						case Connection.TRANSACTION_READ_UNCOMMITTED:
+							txOptionBuilder.readConcern(ReadConcern.LOCAL);
+							break;
+						case Connection.TRANSACTION_READ_COMMITTED:
+							txOptionBuilder.readConcern(ReadConcern.MAJORITY);
+							break;
+						case Connection.TRANSACTION_REPEATABLE_READ:
+							txOptionBuilder.readConcern(ReadConcern.SNAPSHOT);
+							break;
+						case Connection.TRANSACTION_SERIALIZABLE:
+							txOptionBuilder.readConcern(ReadConcern.LINEARIZABLE);
+							break;
+					}
+
+					session = this.mongoClient.startSession();
+					session.startTransaction(txOptionBuilder.build());
+					transactionalContext.bind(this.schemaName, session);
+				}
+			}
+		}
+		return session;
+	}
+
 	@Override
 	public Map<String, Object> insert(@Nonnull final TableDefine tableDefine,
 	                                  @Nonnull final Map<String, Object> dataMap) {
 		Document document = new Document(dataMap);
 		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
 		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(tableDefine.getTableName());
-		ClientSession clientSession = this.threadLocal.get();
+		ClientSession clientSession = this.clientSession();
 		if (clientSession == null) {
 			mongoCollection.insertOne(document);
 		} else {
@@ -339,7 +342,8 @@ public final class MongoDBClient implements DistributeClient {
 		if (mongoCollection.countDocuments(filterDocument) > 1L) {
 			throw new RetrieveException(0x00DB00000028L);
 		}
-		ClientSession clientSession = this.threadLocal.get();
+
+		ClientSession clientSession = this.clientSession();
 		Document document;
 		if (clientSession == null) {
 			document = mongoCollection.find(filterDocument).projection(findColumns).first();
@@ -358,7 +362,7 @@ public final class MongoDBClient implements DistributeClient {
 		Document filterDocument = new Document(filterMap);
 		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
 		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(tableDefine.getTableName());
-		ClientSession clientSession = this.threadLocal.get();
+		ClientSession clientSession = this.clientSession();
 		long modifiedCount;
 		if (clientSession == null) {
 			modifiedCount = mongoCollection.updateMany(filterDocument, updateDocument).getModifiedCount();
@@ -374,7 +378,7 @@ public final class MongoDBClient implements DistributeClient {
 		Document filterDocument = new Document(filterMap);
 		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
 		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(tableDefine.getTableName());
-		ClientSession clientSession = this.threadLocal.get();
+		ClientSession clientSession = this.clientSession();
 		long deletedCount;
 		if (clientSession == null) {
 			deletedCount = mongoCollection.deleteMany(filterDocument).getDeletedCount();
@@ -392,7 +396,7 @@ public final class MongoDBClient implements DistributeClient {
 		}
 		MongoDatabase mongoDatabase = this.mongoClient.getDatabase(this.databaseName);
 		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(mainDocument);
-		ClientSession clientSession = this.threadLocal.get();
+		ClientSession clientSession = this.clientSession();
 		Map<String, Integer> jdbcTypeMap = new HashMap<>();
 		List<Map<String, Object>> resultList = new ArrayList<>();
 		if (queryInfo.getQueryJoins().isEmpty()) {
@@ -493,7 +497,7 @@ public final class MongoDBClient implements DistributeClient {
 			throw new MultilingualSQLException(0x00DB00010020L);
 		}
 		MongoCollection<Document> mongoCollection = mongoDatabase.getCollection(mainDocument);
-		ClientSession clientSession = this.threadLocal.get();
+		ClientSession clientSession = this.clientSession();
 		if (queryInfo.getQueryJoins().isEmpty()) {
 			Document queryDocument = this.conditionsToDocument(queryInfo.getConditionList(), Map.of());
 			if (queryDocument == null) {
@@ -662,6 +666,18 @@ public final class MongoDBClient implements DistributeClient {
 		return queryDocuments;
 	}
 
+	private String localField(final String mainDocument, final TableQueryJoin queryJoin,
+	                          final Map<String, String> aliasMap, final String joinKey) throws SQLException {
+		String localField = ObjectUtils.nullSafeEquals(queryJoin.getDrivenIdentify(), mainDocument)
+				? Globals.DEFAULT_VALUE_STRING
+				: aliasMap.get(queryJoin.getDrivenIdentify().toLowerCase());
+		if (StringUtils.notBlank(localField)) {
+			localField += BrainCommons.DEFAULT_NAME_SPLIT;
+		}
+		localField += EntityFactory.getInstance().columnName(queryJoin.getDrivenIdentify(), joinKey);
+		return localField;
+	}
+
 	private Document joinDocument(final String mainDocument, final TableQueryJoin queryJoin,
 	                              final Map<String, String> aliasMap) throws SQLException {
 		List<JoinInfo> joinColumns = queryJoin.getJoinInfos();
@@ -671,13 +687,7 @@ public final class MongoDBClient implements DistributeClient {
 			if (StringUtils.isEmpty(joinInfo.getLeftKey()) || StringUtils.isEmpty(joinInfo.getRightKey())) {
 				return null;
 			}
-			String localField = ObjectUtils.nullSafeEquals(queryJoin.getDrivenIdentify(), mainDocument)
-					? Globals.DEFAULT_VALUE_STRING
-					: aliasMap.get(queryJoin.getDrivenIdentify().toLowerCase());
-			if (StringUtils.notBlank(localField)) {
-				localField += BrainCommons.DEFAULT_NAME_SPLIT;
-			}
-			localField += EntityFactory.getInstance().columnName(queryJoin.getDrivenIdentify(), joinInfo.getLeftKey());
+			String localField = this.localField(mainDocument, queryJoin, aliasMap, joinInfo.getLeftKey());
 			Document document = new Document();
 			document.put("from", this.dialect.nameCase(queryJoin.getJoinTable()));
 			document.put("localField", this.dialect.nameCase(localField));
@@ -688,13 +698,7 @@ public final class MongoDBClient implements DistributeClient {
 			List<Document> columnsDocument = new ArrayList<>();
 			for (JoinInfo joinInfo : joinColumns) {
 				if (StringUtils.notBlank(joinInfo.getLeftKey()) && StringUtils.notBlank(joinInfo.getRightKey())) {
-					String localField = ObjectUtils.nullSafeEquals(queryJoin.getDrivenIdentify(), mainDocument)
-							? Globals.DEFAULT_VALUE_STRING
-							: aliasMap.get(queryJoin.getDrivenIdentify().toLowerCase());
-					if (StringUtils.notBlank(localField)) {
-						localField += BrainCommons.DEFAULT_NAME_SPLIT;
-					}
-					localField += EntityFactory.getInstance().columnName(queryJoin.getDrivenIdentify(), joinInfo.getLeftKey());
+					String localField = this.localField(mainDocument, queryJoin, aliasMap, joinInfo.getLeftKey());
 					String foreignField = aliasMap.get(queryJoin.getJoinTable().toLowerCase());
 					if (StringUtils.notBlank(foreignField)) {
 						foreignField += BrainCommons.DEFAULT_NAME_SPLIT;

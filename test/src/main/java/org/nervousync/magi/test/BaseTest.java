@@ -1,29 +1,27 @@
 package org.nervousync.magi.test;
 
 import org.junit.jupiter.api.*;
+import org.nervousync.brain.annotations.transactional.Transactional;
 import org.nervousync.brain.configs.transactional.TransactionalConfig;
+import org.nervousync.brain.enumerations.transactional.Isolation;
 import org.nervousync.brain.exceptions.data.InsertException;
 import org.nervousync.brain.query.PartialCollection;
 import org.nervousync.brain.query.QueryInfo;
+import org.nervousync.brain.transactional.TransactionalProxy;
 import org.nervousync.commons.Globals;
 import org.nervousync.enumerations.beans.StringType;
 import org.nervousync.enumerations.logger.LogLevel;
 import org.nervousync.enumerations.security.EncodeType;
-import org.nervousync.magi.annotations.transactional.Transactional;
 import org.nervousync.magi.config.MagiConfigure;
 import org.nervousync.magi.entity.BaseObject;
 import org.nervousync.magi.entity.EntityFactory;
-import org.nervousync.magi.enumerations.transactional.Isolation;
 import org.nervousync.utils.core.*;
 import org.nervousync.utils.logger.LoggerUtils;
 import org.nervousync.utils.security.SecurityUtils;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * <h2 class="en-US">Abstract class of database test instance</h2>
@@ -38,6 +36,7 @@ public abstract class BaseTest<T extends BaseObject> {
 
 	private final Class<T> mainClass;
 	private final Class<?>[] entityClassList;
+	private boolean newTransactional = Boolean.TRUE;
 	protected static String IDENTIFY_KEY = Globals.DEFAULT_VALUE_STRING;
 
 	protected final LoggerUtils.Logger logger = LoggerUtils.getLogger(this.getClass());
@@ -70,33 +69,23 @@ public abstract class BaseTest<T extends BaseObject> {
 		System.out.println(BeanUtils.objectToString(parsedConfig, StringType.JSON));
 	}
 
-	private TransactionalConfig txConfig(final String methodName) {
-		if (StringUtils.isEmpty(methodName)) {
-			return null;
-		}
-		Method method = ReflectionUtils.findMethod(this.getClass(), methodName);
-		Transactional transactional = method.getAnnotation(Transactional.class);
-		if (transactional == null) {
-			return null;
-		}
-		return TransactionalConfig.newInstance(transactional.timeout(), transactional.isolation().value(),
-				transactional.rollbackFor());
-	}
-
 	@BeforeEach
-	public void testBefore(final TestInfo testInfo) throws Exception {
+	public void testBefore(final TestInfo testInfo) {
 		String methodName = testInfo.getTestMethod().orElseThrow().getName();
 		this.logger.info("Test_Begin", testInfo.getTestClass().orElseThrow().getName(), methodName);
-		TransactionalConfig txConfig = this.txConfig(methodName);
-		if (txConfig != null) {
-			this.logger.info("Test_Transactional_Config", txConfig.getTimeout(), txConfig.getIsolation());
-		}
-		EntityFactory.getInstance().beginTransactional(txConfig);
+		Method method = ReflectionUtils.findMethod(this.getClass(), methodName);
+		this.newTransactional = Optional.ofNullable(method.getAnnotation(Transactional.class))
+				.map(transactional ->
+						TransactionalProxy.getTransactionalManager().begin(TransactionalConfig.newInstance(transactional)))
+				.orElse(Boolean.TRUE);
 	}
 
 	@AfterEach
 	public void testAfter(final TestInfo testInfo) throws Exception {
-		EntityFactory.getInstance().endTransactional();
+		if (TransactionalProxy.getTransactionalManager().inTransactional()) {
+			TransactionalProxy.getTransactionalManager().end(this.newTransactional);
+			TransactionalProxy.getTransactionalManager().clear();
+		}
 		String methodName = testInfo.getTestMethod().orElseThrow().getName();
 		this.logger.info("Test_End", testInfo.getTestClass().orElseThrow().getName(), methodName);
 	}
@@ -114,8 +103,8 @@ public abstract class BaseTest<T extends BaseObject> {
 	public void insertRecord() throws Exception {
 		T recordObject = this.generateRecord();
 		recordObject.save();
+		TransactionalProxy.getTransactionalManager().commit(this.newTransactional);
 		this.identifyKey(recordObject);
-		EntityFactory.getInstance().commit();
 	}
 
 	@Test
@@ -155,7 +144,7 @@ public abstract class BaseTest<T extends BaseObject> {
 			this.logger.info("Test_Retrieve_Null");
 		} else {
 			this.modifyObject(mainObject).update();
-			entityFactory.commit();
+			TransactionalProxy.getTransactionalManager().commit(this.newTransactional);
 		}
 	}
 
@@ -184,6 +173,7 @@ public abstract class BaseTest<T extends BaseObject> {
 		}
 		this.verifyRetrieve(mainObject);
 		mainObject.delete();
+		TransactionalProxy.getTransactionalManager().commit(this.newTransactional);
 	}
 
 	@Test
@@ -199,18 +189,17 @@ public abstract class BaseTest<T extends BaseObject> {
 	}
 
 	private void processInsertRecords(boolean rollback) throws Exception {
-		EntityFactory entityFactory = EntityFactory.getInstance();
 		try {
 			for (T record : this.generateRecords()) {
 				record.save();
 			}
 			if (rollback) {
-				entityFactory.rollback(new InsertException(0L));
+				TransactionalProxy.getTransactionalManager().rollback(new InsertException(0L));
 			} else {
-				entityFactory.commit();
+				TransactionalProxy.getTransactionalManager().commit(this.newTransactional);
 			}
 		} catch (Exception e) {
-			entityFactory.rollback(e);
+			TransactionalProxy.getTransactionalManager().rollback(e);
 		}
 	}
 

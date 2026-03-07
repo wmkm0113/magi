@@ -30,7 +30,6 @@ import org.nervousync.annotations.beans.DataTransfer;
 import org.nervousync.annotations.provider.Provider;
 import org.nervousync.beans.config.TransferConfig;
 import org.nervousync.brain.commons.BrainCommons;
-import org.nervousync.brain.configs.transactional.TransactionalConfig;
 import org.nervousync.brain.defines.*;
 import org.nervousync.brain.enumerations.ddl.DropOption;
 import org.nervousync.brain.enumerations.dialect.DialectType;
@@ -165,16 +164,6 @@ public final class EntityFactory {
 	 * <span class="zh-CN">当前线程的持久化配置信息列表</span>
 	 */
 	private final ThreadLocal<Hashtable<Long, PersistenceConfig>> threadLocal = new ThreadLocal<>();
-	/**
-	 * <span class="en-US">Restore mode flag for the current thread</span>
-	 * <span class="zh-CN">当前线程的数据还原模式标记</span>
-	 */
-	private final ThreadLocal<Boolean> restoreMode = new ThreadLocal<>();
-	/**
-	 * <span class="en-US">Data read-only flag for the current thread</span>
-	 * <span class="zh-CN">当前线程的数据只读标记</span>
-	 */
-	private final ThreadLocal<Boolean> readOnly = new ThreadLocal<>();
 
 	static {
 		ServiceLoader.load(SensitiveTracker.class)
@@ -240,62 +229,6 @@ public final class EntityFactory {
 				SystemUtils.registerShutdownHook(new Thread(EntityFactory::destroy));
 			}
 		}
-	}
-
-	/**
-	 * <h3 class="en-US">Static getter method for the entity class factory singleton instance object</h3>
-	 * <h3 class="zh-CN">实体类工厂单例对象的静态Getter方法</h3>
-	 *
-	 * @return <span class="en-US">Entity class factory singleton instance object</span>
-	 * <span class="zh-CN">实体类工厂单例对象</span>
-	 * @throws DatabaseException <span class="en-US">If the entity class factory wasn't initialized</span>
-	 *                           <span class="zh-CN">如果实体类工厂未初始化</span>
-	 */
-	public static EntityFactory getInstance() throws DatabaseException {
-		return getInstance(Boolean.FALSE);
-	}
-
-	/**
-	 * <h3 class="en-US">Static getter method for the entity class factory singleton instance object</h3>
-	 * <h3 class="zh-CN">实体类工厂单例对象的静态Getter方法</h3>
-	 *
-	 * @param readOnly <span class="en-US">Read-only flag</span>
-	 *                 <span class="zh-CN">只读模式标记</span>
-	 * @return <span class="en-US">Entity class factory singleton instance object</span>
-	 * <span class="zh-CN">实体类工厂单例对象</span>
-	 * @throws DatabaseException <span class="en-US">If the entity class factory wasn't initialized</span>
-	 *                           <span class="zh-CN">如果实体类工厂未初始化</span>
-	 */
-	public static EntityFactory getInstance(final boolean readOnly) throws DatabaseException {
-		return getInstance(readOnly, Boolean.FALSE);
-	}
-
-	/**
-	 * <h3 class="en-US">Static getter method for the entity class factory singleton instance object</h3>
-	 * <h3 class="zh-CN">实体类工厂单例对象的静态Getter方法</h3>
-	 *
-	 * @param readOnly    <span class="en-US">Read-only flag</span>
-	 *                    <span class="zh-CN">只读模式标记</span>
-	 * @param restoreMode <span class="en-US">Data restore mode flag</span>
-	 *                    <span class="zh-CN">数据还原模式标记</span>
-	 * @return <span class="en-US">Entity class factory singleton instance object</span>
-	 * <span class="zh-CN">实体类工厂单例对象</span>
-	 * @throws DatabaseException <span class="en-US">If the entity class factory wasn't initialized</span>
-	 *                           <span class="zh-CN">如果实体类工厂未初始化</span>
-	 */
-	public static EntityFactory getInstance(final boolean readOnly, final boolean restoreMode) throws DatabaseException {
-		if (INSTANCE != null) {
-			INSTANCE.threadConfig(readOnly, restoreMode);
-			if (readOnly) {
-				try {
-					INSTANCE.beginTransactional(null);
-				} catch (Exception e) {
-					LOGGER.error("Transactional_Init_Error", e);
-				}
-			}
-			return INSTANCE;
-		}
-		throw new DatabaseException(0x00DB00010007L);
 	}
 
 	/**
@@ -641,52 +574,34 @@ public final class EntityFactory {
 	}
 
 	/**
+	 * <h3 class="en-US">Static getter method for the entity class factory singleton instance object</h3>
+	 * <h3 class="zh-CN">实体类工厂单例对象的静态Getter方法</h3>
+	 *
+	 * @return <span class="en-US">Entity class factory singleton instance object</span>
+	 * <span class="zh-CN">实体类工厂单例对象</span>
+	 * @throws DatabaseException <span class="en-US">If the entity class factory wasn't initialized</span>
+	 *                           <span class="zh-CN">如果实体类工厂未初始化</span>
+	 */
+	public static EntityFactory getInstance() throws DatabaseException {
+		if (INSTANCE != null) {
+			return INSTANCE;
+		}
+		throw new DatabaseException(0x00DB00010007L);
+	}
+
+	/**
 	 * <h3 class="en-US">Initialize the current thread used operator based on the given transaction configuration information</h3>
 	 * <h3 class="zh-CN">根据给定的事务配置信息初始化当前线程的操作器</h3>
-	 *
-	 * @param transactionalConfig <span class="en-US">Transactional configure information</span>
-	 *                            <span class="zh-CN">事务配置信息</span>
-	 * @throws Exception <span class="en-US">An error occurred during execution</span>
-	 *                   <span class="zh-CN">执行过程中出错</span>
 	 */
-	public void beginTransactional(final TransactionalConfig transactionalConfig) throws Exception {
-		this.dataSource.initTransactional(transactionalConfig);
+	public void beginTransactional() {
 		this.threadLocal.set(new Hashtable<>());
-	}
-
-	/**
-	 * <h3 class="en-US">Rollback transactional</h3>
-	 * <h3 class="zh-CN">回滚事务</h3>
-	 *
-	 * @param e <span class="en-US">Cached execution information</span>
-	 *          <span class="zh-CN">捕获的异常信息</span>
-	 * @throws Exception <span class="en-US">If an error occurs during execution</span>
-	 *                   <span class="zh-CN">如果执行过程中出错</span>
-	 */
-	public void rollback(final Exception e) throws Exception {
-		this.dataSource.rollback(e);
-	}
-
-	/**
-	 * <h3 class="en-US">Submit transactional execute</h3>
-	 * <h3 class="zh-CN">提交事务执行</h3>
-	 *
-	 * @throws Exception <span class="en-US">If an error occurs during execution</span>
-	 *                   <span class="zh-CN">如果执行过程中出错</span>
-	 */
-	public void commit() throws Exception {
-		this.dataSource.commit();
 	}
 
 	/**
 	 * <h3 class="en-US">Finish current transactional</h3>
 	 * <h3 class="zh-CN">结束当前事务</h3>
-	 *
-	 * @throws Exception <span class="en-US">An error occurred during execution</span>
-	 *                   <span class="zh-CN">执行过程中出错</span>
 	 */
-	public void endTransactional() throws Exception {
-		this.dataSource.endTransactional();
+	public void endTransactional() {
 		this.threadLocal.remove();
 	}
 
@@ -705,14 +620,8 @@ public final class EntityFactory {
 		if (this.checkExist(object)) {
 			throw new MultilingualSQLException(0x00DB00010009L);
 		}
-		if (this.readOnly.get()) {
-			throw new MultilingualSQLException(0x00DB00010010L);
-		}
 		TableConfig tableConfig = this.tableConfig(object.getClass());
-		boolean restoreMode = Optional.ofNullable(this.restoreMode.get()).orElse(Boolean.FALSE);
-		if (!restoreMode) {
-			tableConfig.generateKey(object, this);
-		}
+		tableConfig.generateKey(object, this);
 		tableConfig.desensitize(object);
 		Map<String, Object> dataMap = tableConfig.dataMap(object);
 		Map<String, Object> primaryKeyMap =
@@ -722,11 +631,9 @@ public final class EntityFactory {
 		}
 		this.newConfig(Boolean.TRUE, object, dataMap.keySet(), tableConfig);
 		this.cacheData(tableConfig, object);
-		if (!restoreMode) {
-			this.logOperate(object, operateUser, MagiGlobals.OPERATE_CODE_CREATE);
-			this.mergeObjects(object, tableConfig.getReferenceDefineList(),
-					List.of(CascadeType.ALL, CascadeType.PERSIST), operateUser, MagiGlobals.OPERATE_CODE_CREATE);
-		}
+		this.logOperate(object, operateUser, MagiGlobals.OPERATE_CODE_CREATE);
+		this.mergeObjects(object, tableConfig.getReferenceDefineList(),
+				List.of(CascadeType.ALL, CascadeType.PERSIST), operateUser, MagiGlobals.OPERATE_CODE_CREATE);
 	}
 
 	/**
@@ -744,9 +651,6 @@ public final class EntityFactory {
 	 */
 	public void updateRecord(@Nonnull final BaseObject object, final Long operateUser,
 	                         final Integer operateCode) throws Exception {
-		if (this.readOnly.get()) {
-			throw new MultilingualSQLException(0x00DB00010010L);
-		}
 		this.checkModify(object);
 		TableConfig tableConfig = this.tableConfig(object.getClass());
 		tableConfig.desensitize(object);
@@ -756,12 +660,9 @@ public final class EntityFactory {
 			throw new MultilingualSQLException(0x00DB00010023L);
 		}
 		this.cacheData(tableConfig, object);
-		boolean restoreMode = Optional.ofNullable(this.restoreMode.get()).orElse(Boolean.FALSE);
-		if (!restoreMode) {
-			this.logOperate(object, operateUser, operateCode);
-			this.mergeObjects(object, tableConfig.getReferenceDefineList(), List.of(CascadeType.ALL, CascadeType.MERGE),
-					operateUser, operateCode);
-		}
+		this.logOperate(object, operateUser, operateCode);
+		this.mergeObjects(object, tableConfig.getReferenceDefineList(), List.of(CascadeType.ALL, CascadeType.MERGE),
+				operateUser, operateCode);
 	}
 
 	/**
@@ -774,9 +675,6 @@ public final class EntityFactory {
 	 *                   <span class="zh-CN">如果操作过程中出错</span>
 	 */
 	public void deleteRecord(@Nonnull final BaseObject object) throws Exception {
-		if (this.readOnly.get()) {
-			throw new MultilingualSQLException(0x00DB00010010L);
-		}
 		this.checkModify(object);
 		TableConfig tableConfig = this.tableConfig(object.getClass());
 		int resultCount = this.dataSource.delete(tableConfig.getTableDefine().getTableName(), tableConfig.filterMap(object));
@@ -805,12 +703,9 @@ public final class EntityFactory {
 			}
 		}
 		this.threadLocal.get().remove(object.identifiedCode());
-		if (!Optional.ofNullable(this.restoreMode.get()).orElse(Boolean.FALSE)) {
-			try {
-				this.dataSource.delete("NSYC_Record_Operate_Log",
-						Map.of("tableIdentifier", tableConfig.identifier()));
-			} catch (Exception ignore) {
-			}
+		try {
+			this.dataSource.delete("NSYC_Record_Operate_Log", Map.of("tableIdentifier", tableConfig.identifier()));
+		} catch (Exception ignore) {
 		}
 	}
 
@@ -1266,20 +1161,6 @@ public final class EntityFactory {
 							.confirm();
 		}
 		return this.dataSource.query(conditionsBuilder.confirm().forUpdate(tableConfig.getLockOption()).build());
-	}
-
-	/**
-	 * <h3 class="en-US">Set the working mode of the current thread</h3>
-	 * <h3 class="zh-CN">设置当前线程的工作模式</h3>
-	 *
-	 * @param readOnly    <span class="en-US">Read-only flag</span>
-	 *                    <span class="zh-CN">只读模式标记</span>
-	 * @param restoreMode <span class="en-US">Data restore mode flag</span>
-	 *                    <span class="zh-CN">数据还原模式标记</span>
-	 */
-	private void threadConfig(final boolean readOnly, final boolean restoreMode) {
-		this.readOnly.set(readOnly);
-		this.restoreMode.set(restoreMode);
 	}
 
 	/**
@@ -2720,8 +2601,22 @@ public final class EntityFactory {
 							ReflectionUtils.setField(fieldName, object, fieldValue);
 						}
 					});
-			this.referenceDefineList.forEach(referenceDefine ->
-					this.processReference(object, referenceDefine, entityFactory));
+			this.referenceDefineList.forEach(referenceDefine -> {
+				Object referenceObject = ReflectionUtils.getFieldValue(referenceDefine.getFieldName(), object);
+				if (referenceDefine.isReturnArray()) {
+					for (Object reference : CollectionUtils.toList(referenceObject)) {
+						if (reference instanceof BaseObject) {
+							if (!entityFactory.checkExist((BaseObject) reference)) {
+								this.processReference(object, (BaseObject) reference, referenceDefine, entityFactory);
+							}
+						}
+					}
+				} else if (referenceObject instanceof BaseObject) {
+					if (!entityFactory.checkExist((BaseObject) referenceObject)) {
+						this.processReference(object, (BaseObject) referenceObject, referenceDefine, entityFactory);
+					}
+				}
+			});
 		}
 
 		/**
@@ -2735,38 +2630,34 @@ public final class EntityFactory {
 		 * @param entityFactory   <span class="en-US">Entity factory instance object</span>
 		 *                        <span class="zh-CN">实体类工厂实例对象</span>
 		 */
-		private void processReference(final BaseObject object, final ReferenceDefine<?> referenceDefine,
+		private void processReference(final BaseObject object, final BaseObject reference,
+		                              final ReferenceDefine<?> referenceDefine,
 		                              final EntityFactory entityFactory) {
 			TableConfig referenceTable = entityFactory.tableConfig(referenceDefine.getReferenceClass());
 			if (referenceTable == null) {
 				return;
 			}
 
-			Optional.ofNullable(ReflectionUtils.getFieldValue(referenceDefine.getFieldName(), object, Boolean.FALSE))
-					.filter(reference -> reference instanceof BaseObject)
-					.filter(reference -> !entityFactory.checkExist((BaseObject) reference))
-					.ifPresent(reference -> {
-						referenceTable.generateKey((BaseObject) reference, entityFactory);
-						switch (referenceDefine.getReferenceType()) {
-							case OneToOne:
-							case OneToMany:
-								for (JoinDefine joinDefine : referenceDefine.getJoinColumnList()) {
-									Optional.ofNullable(this.readFieldValue(object, joinDefine.getCurrentField()))
-											.ifPresent(fieldValue ->
-													referenceTable.writeFieldValue(reference,
-															joinDefine.getReferenceField(), fieldValue));
-								}
-								break;
-							case ManyToOne:
-								for (JoinDefine joinDefine : referenceDefine.getJoinColumnList()) {
-									Optional.ofNullable(referenceTable.readFieldValue(reference, joinDefine.getReferenceField()))
-											.ifPresent(fieldValue ->
-													this.writeFieldValue(object, joinDefine.getCurrentField(),
-															fieldValue));
-								}
-								break;
-						}
-					});
+			referenceTable.generateKey(reference, entityFactory);
+			switch (referenceDefine.getReferenceType()) {
+				case OneToOne:
+				case OneToMany:
+					for (JoinDefine joinDefine : referenceDefine.getJoinColumnList()) {
+						Optional.ofNullable(this.readFieldValue(object, joinDefine.getCurrentField()))
+								.ifPresent(fieldValue ->
+										referenceTable.writeFieldValue(reference,
+												joinDefine.getReferenceField(), fieldValue));
+					}
+					break;
+				case ManyToOne:
+					for (JoinDefine joinDefine : referenceDefine.getJoinColumnList()) {
+						Optional.ofNullable(referenceTable.readFieldValue(reference, joinDefine.getReferenceField()))
+								.ifPresent(fieldValue ->
+										this.writeFieldValue(object, joinDefine.getCurrentField(),
+												fieldValue));
+					}
+					break;
+			}
 		}
 
 		/**

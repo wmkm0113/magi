@@ -17,6 +17,7 @@
 
 package org.nervousync.magi.dialects.impl.cassandra;
 
+import com.datastax.oss.driver.api.core.cql.BatchStatementBuilder;
 import jakarta.annotation.Nonnull;
 import org.nervousync.annotations.provider.Provider;
 import org.nervousync.brain.annotations.dialect.DataType;
@@ -91,7 +92,7 @@ import java.util.*;
         @DataType(code = Types.NCLOB, type = "text"),
         @DataType(code = Types.LONGNVARCHAR, type = "text")
 })
-public final class CassandraDialectImpl extends DistributeDialect {
+public final class CassandraDialectImpl extends DistributeDialect<BatchStatementBuilder> {
 
     /**
      * <h3 class="en-US">Constructor method for Cassandra database dialect implementation class</h3>
@@ -101,11 +102,11 @@ public final class CassandraDialectImpl extends DistributeDialect {
      *                          <span class="zh-CN">如果实现类未找到SchemaDialect注解</span>
      */
     public CassandraDialectImpl() throws DialectException {
-        super();
+        super(BatchStatementBuilder.class);
     }
 
     @Override
-    public DistributeClient newClient(final DistributeSchemaConfig schemaConfig) throws Exception {
+    public DistributeClient<BatchStatementBuilder> newClient(final DistributeSchemaConfig schemaConfig) throws Exception {
         return new CassandraClient(this, schemaConfig);
     }
 

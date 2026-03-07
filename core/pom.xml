@@ -50,7 +50,7 @@
         </developer>
     </developers>
     <properties>
-        <bytebuddy.version>1.17.8</bytebuddy.version>
+        <bytebuddy.version>1.18.7</bytebuddy.version>
     </properties>
     <dependencies>
 		<dependency>
@@ -61,20 +61,63 @@
         <dependency>
             <groupId>org.nervousync</groupId>
             <artifactId>cache-api</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.nervousync</groupId>
+                    <artifactId>utils-beans</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.nervousync</groupId>
+                    <artifactId>utils-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.nervousync</groupId>
+                    <artifactId>utils-config</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 		<dependency>
 			<groupId>org.nervousync</groupId>
 			<artifactId>cache-all</artifactId>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.nervousync</groupId>
+                    <artifactId>utils-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.nervousync</groupId>
+                    <artifactId>utils-config</artifactId>
+                </exclusion>
+            </exclusions>
 		</dependency>
-		<dependency>
-			<groupId>org.nervousync</groupId>
-			<artifactId>brain</artifactId>
-		</dependency>
-		<!-- Utils -->
-		<dependency>
-			<groupId>org.nervousync</groupId>
-			<artifactId>utils-all</artifactId>
-		</dependency>
+        <dependency>
+            <groupId>org.nervousync</groupId>
+            <artifactId>brain</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.nervousync</groupId>
+                    <artifactId>utils-beans</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.nervousync</groupId>
+                    <artifactId>utils-config</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.nervousync</groupId>
+                    <artifactId>utils-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.nervousync</groupId>
+                    <artifactId>utils-net</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Utils -->
+        <dependency>
+            <groupId>org.nervousync</groupId>
+            <artifactId>utils-all</artifactId>
+        </dependency>
         <!-- Byte buddy support -->
         <dependency>
             <groupId>net.bytebuddy</groupId>
